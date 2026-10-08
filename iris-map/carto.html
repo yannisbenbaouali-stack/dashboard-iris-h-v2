@@ -7,77 +7,114 @@
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <style>
-:root{--bg:#f6f5f2;--panel:#ffffff;--ink:#1d2330;--dim:#5f6475;--line:#e3e1db;--accent:#c2551f;--accent2:#2f5d8a;--ok:#2e7d4f;--ko:#a33a3a}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#14171d;--panel:#1c2028;--ink:#e8e9ec;--dim:#9aa0ad;--line:#2c313b;--accent:#e07a43;--accent2:#6d9fd0;--ok:#5cb784;--ko:#d77272}}
-:root[data-theme="dark"]{--bg:#14171d;--panel:#1c2028;--ink:#e8e9ec;--dim:#9aa0ad;--line:#2c313b;--accent:#e07a43;--accent2:#6d9fd0;--ok:#5cb784;--ko:#d77272}
+:root{--bg:#f6f5f2;--panel:#ffffff;--ink:#1d2330;--dim:#5f6475;--line:#e3e1db;--accent2:#2f5d8a;--ok:#2e7d4f;--ko:#a33a3a;--p1:#b3261e;--p2:#e07a2f;--p3:#c9a227}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#14171d;--panel:#1c2028;--ink:#e8e9ec;--dim:#9aa0ad;--line:#2c313b;--accent2:#6d9fd0;--ok:#5cb784;--ko:#d77272}}
+:root[data-theme="dark"]{--bg:#14171d;--panel:#1c2028;--ink:#e8e9ec;--dim:#9aa0ad;--line:#2c313b;--accent2:#6d9fd0;--ok:#5cb784;--ko:#d77272}
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:13px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
-#map{position:absolute;inset:0}
-.bar{position:absolute;top:12px;left:12px;z-index:2;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;box-shadow:0 4px 18px rgba(0,0,0,.12);max-width:300px}
-.bar h1{font-size:14px;margin:0 0 2px;letter-spacing:.04em}
-.bar .sub{color:var(--dim);font-size:11px;margin-bottom:8px}
-.bar label{display:flex;align-items:center;gap:6px;margin:3px 0;cursor:pointer}
-.bar select{width:100%;margin:4px 0 6px;padding:4px;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:6px}
-.stats{display:grid;grid-template-columns:1fr 1fr;gap:4px 10px;margin-top:8px;padding-top:8px;border-top:1px solid var(--line);font-size:11px;color:var(--dim)}
-.stats b{color:var(--ink);font-size:13px;display:block}
-.leg{display:inline-block;width:11px;height:11px;border-radius:2px;vertical-align:-1px}
-#fiche{position:absolute;top:0;right:0;bottom:0;width:420px;max-width:100%;z-index:3;background:var(--panel);border-left:1px solid var(--line);overflow:auto;transform:translateX(100%);transition:transform .2s;padding:16px 18px 40px}
+#app{display:flex;height:100%}
+#side{width:380px;min-width:380px;background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;transition:margin .2s}
+#side.ferme{margin-left:-380px}
+#map{flex:1;position:relative}
+.hd{padding:12px 14px 8px;border-bottom:1px solid var(--line)}
+.hd h1{font-size:15px;margin:0;letter-spacing:.04em}
+.hd .sub{color:var(--dim);font-size:11px}
+.ctl{padding:10px 14px;border-bottom:1px solid var(--line);display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.ctl .full{grid-column:1/3}
+input,select,textarea,button{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:5px 7px;width:100%}
+button{cursor:pointer;background:var(--panel)}
+button.pri{background:var(--accent2);color:#fff;border-color:var(--accent2)}
+label.chk{display:flex;gap:6px;align-items:center;font-size:12px}
+label.chk input{width:auto}
+.lbl{font-size:10.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px}
+#res-hd{padding:8px 14px;display:flex;justify-content:space-between;align-items:center;color:var(--dim);font-size:12px;border-bottom:1px solid var(--line)}
+#res-hd button{width:auto;padding:3px 8px;font-size:12px}
+#res{overflow:auto;flex:1}
+.row{padding:7px 14px;border-bottom:1px solid var(--line);cursor:pointer;display:grid;grid-template-columns:34px 1fr auto;gap:8px;align-items:start}
+.row:hover{background:var(--bg)}
+.pb{display:inline-block;min-width:26px;text-align:center;color:#fff;border-radius:4px;font-weight:700;font-size:11px;padding:1px 0}
+.row .t{font-weight:600}
+.row .m{color:var(--dim);font-size:11px}
+.row .s{text-align:right;white-space:nowrap;font-size:12px}
+.st{display:inline-block;font-size:10.5px;border:1px solid var(--line);border-radius:8px;padding:0 6px;margin-top:2px}
+#toggle{position:absolute;top:10px;left:10px;z-index:3;width:auto;padding:5px 9px;box-shadow:0 2px 8px rgba(0,0,0,.15)}
+#search{position:absolute;top:10px;left:50px;z-index:3;width:300px;max-width:calc(100% - 120px)}
+#search input{box-shadow:0 2px 8px rgba(0,0,0,.15);background:var(--panel)}
+#sugg{background:var(--panel);border:1px solid var(--line);border-radius:6px;margin-top:2px;display:none}
+#sugg div{padding:6px 8px;cursor:pointer;border-bottom:1px solid var(--line)}
+#sugg div:hover{background:var(--bg)}
+#layers{position:absolute;top:10px;right:10px;z-index:3;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 10px;box-shadow:0 2px 8px rgba(0,0,0,.15);font-size:12px}
+#layers .leg{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:3px;vertical-align:-1px}
+#zoomhint{position:absolute;bottom:34px;left:50%;transform:translateX(-50%);z-index:3;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:5px 12px;font-size:12px;display:none}
+#fiche{position:absolute;top:0;right:0;bottom:0;width:430px;max-width:100%;z-index:4;background:var(--panel);border-left:1px solid var(--line);overflow:auto;transform:translateX(100%);transition:transform .2s;padding:14px 18px 40px}
 #fiche.open{transform:none}
-#fiche .x{position:sticky;top:0;float:right;background:var(--bg);border:1px solid var(--line);border-radius:6px;color:var(--ink);cursor:pointer;padding:2px 9px;font-size:15px}
+#fiche .x{position:sticky;top:0;float:right;width:auto;padding:2px 9px;font-size:15px}
 #fiche h2{font-size:16px;margin:0 0 2px}
-#fiche h3{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--dim);margin:18px 0 6px;border-bottom:1px solid var(--line);padding-bottom:4px}
+#fiche h3{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--dim);margin:16px 0 6px;border-bottom:1px solid var(--line);padding-bottom:4px}
 .kv{display:grid;grid-template-columns:150px 1fr;gap:3px 10px}
 .kv div:nth-child(odd){color:var(--dim)}
 .tag{display:inline-block;padding:1px 7px;border-radius:9px;font-size:11px;background:var(--bg);border:1px solid var(--line);margin:0 4px 4px 0}
 .tag.ok{color:var(--ok);border-color:var(--ok)} .tag.ko{color:var(--ko);border-color:var(--ko)}
 table.t{width:100%;border-collapse:collapse;font-size:12px}
-table.t td,table.t th{padding:4px 4px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+table.t td,table.t th{padding:4px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
 table.t th{color:var(--dim);font-weight:500}
 .r{text-align:right!important;white-space:nowrap}
 .occ{padding:6px 0;border-bottom:1px solid var(--line)}
-.occ .n{font-weight:600}
-.occ .m{color:var(--dim);font-size:11px}
+.occ .n{font-weight:600}.occ .m{color:var(--dim);font-size:11px}
+.suivi{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.suivi .full{grid-column:1/3}
 a{color:var(--accent2)}
 .tip{font:12px/1.4 system-ui,sans-serif;color:#1d2330}
-.tip b{font-size:12.5px}
 .maplibregl-popup-content{padding:8px 10px;border-radius:8px}
-#msg{position:absolute;left:50%;top:14px;transform:translateX(-50%);z-index:4;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 14px;display:none}
-@media (max-width:640px){.bar{left:8px;right:8px;max-width:none;top:8px}#fiche{width:100%}}
+#msg{position:fixed;left:50%;top:12px;transform:translateX(-50%);z-index:9;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 14px;display:none;box-shadow:0 2px 8px rgba(0,0,0,.15)}
+@media (max-width:760px){#side{position:absolute;z-index:5;height:100%;width:100%;min-width:0}#side.ferme{margin-left:-100%}#search{left:50px;width:auto;right:10px}#layers{top:54px}#fiche{width:100%}}
 </style>
 </head>
 <body>
-<div id="map"></div>
-<div class="bar">
-  <h1>IRIS MAP</h1>
-  <div class="sub">Prospection IRIS REP · données ouvertes</div>
-  <select id="commune"><option value="37233">Saint Pierre des Corps (37233)</option></select>
-  <select id="f-prio">
-    <option value="1">Priorité 1 : industriel en zone d'activité</option>
-    <option value="2" selected>Priorités 1 et 2</option>
-    <option value="3">Toutes les cibles (P1 à P3)</option>
-    <option value="0">Tous les bâtiments</option>
-  </select>
-  <div style="font-size:11px;color:var(--dim);margin-bottom:4px"><span class="leg" style="background:#b3261e"></span> P1 &nbsp;<span class="leg" style="background:#e07a2f"></span> P2 &nbsp;<span class="leg" style="background:#d9b44a"></span> P3 &nbsp;<span class="leg" style="background:#8b93a1"></span> autre</div>
-  <button id="b-liste" style="width:100%;margin:2px 0 6px;padding:5px;border-radius:6px;border:1px solid var(--line);background:var(--bg);color:var(--ink);cursor:pointer">Liste des priorités</button>
-  <label><input type="checkbox" id="f-cad" checked> Cadastre</label>
-  <label><input type="checkbox" id="f-etab"> Entreprises (SIRENE)</label>
-  <label><input type="checkbox" id="f-zon"> Zonage PLU</label>
-  <label><input type="checkbox" id="f-ortho"> Photo aérienne</label>
-  <div class="stats" id="stats"></div>
+<div id="app">
+  <aside id="side">
+    <div class="hd"><h1>IRIS MAP</h1><div class="sub">Prospection IRIS REP · <span id="stat"></span></div></div>
+    <div class="ctl">
+      <input class="full" id="q" placeholder="Propriétaire, SIREN, adresse, occupant, NAF, note…">
+      <div><div class="lbl">Priorité</div><select id="prio"><option value="1">P1</option><option value="2">P1 et P2</option><option value="3" selected>P1 à P3</option><option value="0">Tous</option></select></div>
+      <div><div class="lbl">Suivi</div><select id="statut"><option value="">Tous</option><option value="aucun">Jamais traité</option></select></div>
+      <div><div class="lbl">Emprise min m²</div><input id="smin" type="number" value="100" step="50"></div>
+      <div><div class="lbl">Emprise max m²</div><input id="smax" type="number" step="50"></div>
+      <label class="chk"><input type="checkbox" id="za"> Zone d'activité</label>
+      <label class="chk"><input type="checkbox" id="pm"> Propriétaire société</label>
+    </div>
+    <div id="res-hd"><span id="nb">…</span><span><button id="csv">Export CSV</button></span></div>
+    <div id="res"></div>
+  </aside>
+  <div id="map">
+    <button id="toggle" title="Panneau">☰</button>
+    <div id="search"><input id="adr" placeholder="Aller à une adresse ou une commune"><div id="sugg"></div></div>
+    <div id="layers">
+      <div style="margin-bottom:4px"><span class="leg" style="background:var(--p1)"></span>P1 <span class="leg" style="background:var(--p2)"></span>P2 <span class="leg" style="background:var(--p3)"></span>P3 <span class="leg" style="background:#9aa0ad"></span>autre</div>
+      <label class="chk"><input type="checkbox" id="l-cad" checked> Cadastre</label>
+      <label class="chk"><input type="checkbox" id="l-ortho"> Photo aérienne</label>
+      <label class="chk"><input type="checkbox" id="l-etab"> Entreprises</label>
+      <label class="chk"><input type="checkbox" id="l-zon"> Zonage PLU</label>
+    </div>
+    <div id="zoomhint">Zoomez pour afficher les bâtiments</div>
+    <div id="fiche"><button class="x" onclick="closeFiche()">×</button><div id="fiche-c"></div></div>
+  </div>
 </div>
-<div id="fiche"><button class="x" onclick="closeFiche()">×</button><div id="fiche-c"></div></div>
 <div id="msg"></div>
 <script>
 const SUPA_URL='https://kkznkuwoxoxvapejzytv.supabase.co';
 const SUPA_ANON=(()=>{try{const c=JSON.parse(localStorage.getItem('iris_h_cfg'));if(c&&c.key)return c.key}catch(e){}return ''})();
 const TOK_KEY='iris_h_tok';
+const STATUTS=['À contacter','Contacté','Rendez vous','Mandat vendeur','Mandat recherche','À vendre','Pas vendeur','À revoir','Écarté'];
+const PCOL=['#9aa0ad','#b3261e','#e07a2f','#c9a227'];
 const EFF={'NN':'non renseigné','00':'0','01':'1 à 2','02':'3 à 5','03':'6 à 9','11':'10 à 19','12':'20 à 49','21':'50 à 99','22':'100 à 199','31':'200 à 249','32':'250 à 499','41':'500 à 999','42':'1000 à 1999','51':'2000 à 4999','52':'5000 à 9999','53':'10000 et plus'};
-let tok=null;
+let tok=null, rows=[], hlIds=[];
 
-function msg(t){const m=document.getElementById('msg');m.textContent=t||'';m.style.display=t?'block':'none'}
+const $=id=>document.getElementById(id);
+function msg(t,ms){const m=$('msg');m.innerHTML=t||'';m.style.display=t?'block':'none';if(ms)setTimeout(()=>msg(''),ms)}
 function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
 function n0(v){return v==null||v===''?'':Number(v).toLocaleString('fr-FR',{maximumFractionDigits:0})}
-function eur(v){return v==null?'':n0(v)+' €'}
+function nz(v){return v&&v!=='null'?v:''}
 
 async function auth(){
   let t=null;try{t=JSON.parse(localStorage.getItem(TOK_KEY))}catch(e){}
@@ -88,110 +125,134 @@ async function auth(){
   }
   return false;
 }
-async function rpc(fn,args){
-  const r=await fetch(`${SUPA_URL}/rest/v1/rpc/${fn}`,{method:'POST',headers:{'apikey':SUPA_ANON,'Authorization':'Bearer '+tok,'Content-Type':'application/json'},body:JSON.stringify(args)});
-  if(!r.ok)throw new Error(fn+' '+r.status);return r.json();
-}
+const hdr=()=>({'apikey':SUPA_ANON,'Authorization':'Bearer '+tok,'Content-Type':'application/json'});
+async function rpc(fn,args){const r=await fetch(`${SUPA_URL}/rest/v1/rpc/${fn}`,{method:'POST',headers:hdr(),body:JSON.stringify(args)});if(!r.ok)throw new Error(fn+' '+r.status);return r.json()}
 
 const ign=(layer,fmt)=>`https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=${layer}&STYLE=normal&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&FORMAT=${fmt}`;
 const map=new maplibregl.Map({container:'map',center:[0.7262,47.3897],zoom:14,maxZoom:20,
+  transformRequest:(url)=>url.startsWith(SUPA_URL)?{url,headers:{'apikey':SUPA_ANON,'Authorization':'Bearer '+tok,'Accept':'application/vnd.mapbox-vector-tile'}}:{url},
   style:{version:8,sources:{
     plan:{type:'raster',tiles:[ign('GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2','image/png')],tileSize:256,maxzoom:19,attribution:'© IGN'},
     ortho:{type:'raster',tiles:[ign('ORTHOIMAGERY.ORTHOPHOTOS','image/jpeg')],tileSize:256,maxzoom:19},
     cad:{type:'raster',tiles:[ign('CADASTRALPARCELS.PARCELLAIRE_EXPRESS','image/png')],tileSize:256,maxzoom:19}},
-  layers:[{id:'plan',type:'raster',source:'plan'},
-    {id:'ortho',type:'raster',source:'ortho',layout:{visibility:'none'}},
-    {id:'cad',type:'raster',source:'cad',paint:{'raster-opacity':.7}}]}});
+  layers:[{id:'plan',type:'raster',source:'plan'},{id:'ortho',type:'raster',source:'ortho',layout:{visibility:'none'}},{id:'cad',type:'raster',source:'cad',paint:{'raster-opacity':.7}}]}});
 map.addControl(new maplibregl.NavigationControl(),'bottom-right');
 map.addControl(new maplibregl.ScaleControl({unit:'metric'}),'bottom-left');
-
 const pop=new maplibregl.Popup({closeButton:false,closeOnClick:false,offset:8});
 let hovered=null;
 
-async function load(code){
-  msg('Chargement…');
-  const [bat,zon,etab,st]=await Promise.all([rpc('carto_geojson_batiments',{p_code:code}),rpc('carto_geojson_zonage',{p_code:code}),rpc('carto_geojson_etablissements',{p_code:code}),rpc('carto_stats',{p_code:code})]);
-  bat.features.forEach((f,i)=>f.id=i+1);
-  const add=(id,data)=>{if(map.getSource(id))map.getSource(id).setData(data);else map.addSource(id,{type:'geojson',data})};
-  add('zon',zon);add('bat',bat);add('etab',etab);
-  if(!map.getLayer('zon-f')){
-    map.addLayer({id:'zon-f',type:'fill',source:'zon',layout:{visibility:'none'},paint:{'fill-color':['match',['slice',['coalesce',['get','typezone'],''],0,1],'U','#f2b134','A','#7fb069','N','#4f9d69','#bbbbbb'],'fill-opacity':.18}});
-    map.addLayer({id:'zon-l',type:'line',source:'zon',layout:{visibility:'none'},paint:{'line-color':'#8a6d1f','line-width':1}});
-    map.addLayer({id:'zon-t',type:'symbol',source:'zon',layout:{visibility:'none','text-field':['get','libelle'],'text-size':11},paint:{'text-color':'#5a4510','text-halo-color':'#fff','text-halo-width':1.2}});
-    map.addLayer({id:'bat-f',type:'fill',source:'bat',paint:{
-      'fill-color':['match',['get','prio'],1,'#b3261e',2,'#e07a2f',3,'#d9b44a','#8b93a1'],
-      'fill-opacity':['case',['boolean',['feature-state','hover'],false],.95,['>',['get','prio'],0],.7,.25]}});
-    map.addLayer({id:'bat-l',type:'line',source:'bat',paint:{'line-color':['case',['>',['get','nbprop'],0],'#2f5d8a','#55595f'],'line-width':['case',['>',['get','nbprop'],0],1.6,.5]}});
-    map.addLayer({id:'etab',type:'circle',source:'etab',layout:{visibility:'none'},paint:{'circle-radius':3.5,'circle-color':['case',['==',['get','etat'],'A'],'#2e7d4f','#a33a3a'],'circle-stroke-color':'#fff','circle-stroke-width':1}});
-    hookEvents();
-  }
-  applyFilter();
-  const b=new maplibregl.LngLatBounds();bat.features.forEach(f=>{const c=f.geometry.coordinates;(f.geometry.type==='MultiPolygon'?c.flat(2):c.flat(1)).forEach(p=>b.extend(p))});
-  if(!b.isEmpty())map.fitBounds(b,{padding:40,duration:0});
-  window._bat=bat;
-  document.getElementById('stats').innerHTML=[['Priorité 1',st.p1],['Priorité 2',st.p2],['Priorité 3',st.p3],['Cibles propriétaire société',st.proprietaires_pm],['Bâtiments',st.batiments],['Parcelles',st.parcelles],['Ventes DVF',st.mutations],['Établissements',st.etablissements]].map(([k,v])=>`<div><b>${n0(v)}</b>${k}</div>`).join('')+(st.zonage?'':'<div style="grid-column:1/3;color:var(--ko)">Zonage PLU en attente, serveur IGN indisponible. Priorités provisoires.</div>');
-  msg('');
-}
-function applyFilter(){
-  const v=+document.getElementById('f-prio').value;
-  const f=v?['all',['>',['get','prio'],0],['<=',['get','prio'],v]]:null;
-  ['bat-f','bat-l'].forEach(l=>map.getLayer(l)&&map.setFilter(l,f));
-}
-function vis(id,on){map.getLayer(id)&&map.setLayoutProperty(id,'visibility',on?'visible':'none')}
-function hookEvents(){
+function addData(){
+  map.addSource('t',{type:'vector',tiles:[`${SUPA_URL}/rest/v1/rpc/carto_mvt?z={z}&x={x}&y={y}`],minzoom:12,maxzoom:16,promoteId:{bat:'id',etab:'siret'}});
+  map.addLayer({id:'bat-f',type:'fill',source:'t','source-layer':'bat',paint:{
+    'fill-color':['match',['get','prio'],1,PCOL[1],2,PCOL[2],3,PCOL[3],PCOL[0]],
+    'fill-opacity':['case',['boolean',['feature-state','hover'],false],.95,['>',['get','prio'],0],.72,.22]}});
+  map.addLayer({id:'bat-l',type:'line',source:'t','source-layer':'bat',paint:{'line-color':['case',['>',['get','nbprop'],0],'#2f5d8a','#55595f'],'line-width':['case',['>',['get','nbprop'],0],1.4,.4]}});
+  map.addLayer({id:'bat-suivi',type:'line',source:'t','source-layer':'bat',filter:['has','statut'],paint:{'line-color':'#111','line-width':2.4,'line-dasharray':[2,1]}});
+  map.addLayer({id:'bat-hl',type:'line',source:'t','source-layer':'bat',filter:['in',['get','id'],['literal',[]]],paint:{'line-color':'#00a3ff','line-width':3}});
+  map.addLayer({id:'etab',type:'circle',source:'t','source-layer':'etab',layout:{visibility:'none'},paint:{'circle-radius':3.5,'circle-color':['case',['==',['get','etat'],'A'],'#2e7d4f','#a33a3a'],'circle-stroke-color':'#fff','circle-stroke-width':1}});
   map.on('mousemove','bat-f',e=>{
     const f=e.features[0];map.getCanvas().style.cursor='pointer';
-    if(hovered!==null)map.setFeatureState({source:'bat',id:hovered},{hover:false});
-    hovered=f.id;map.setFeatureState({source:'bat',id:hovered},{hover:true});
+    if(hovered!==null)map.setFeatureState({source:'t',sourceLayer:'bat',id:hovered},{hover:false});
+    hovered=f.id;map.setFeatureState({source:'t',sourceLayer:'bat',id:hovered},{hover:true});
     const p=f.properties;
-    pop.setLngLat(e.lngLat).setHTML(`<div class="tip">${p.prio>0?'<b style="color:'+['','#b3261e','#e07a2f','#a8841e'][p.prio]+'">P'+p.prio+'</b> · '+esc(p.motif)+'<br>':''}<b>${esc(p.usage||'Usage inconnu')}</b><br>Emprise ${n0(p.emprise)} m² · plancher estimé ${n0(p.plancher)} m²${p.annee?'<br>Construit en '+p.annee:''}${p.prop&&p.prop!=='null'?'<br>Propriétaire : '+esc(p.prop)+(p.nbprop>1?' et '+(p.nbprop-1)+' autre(s)':''):''}${p.adresse&&p.adresse!=='null'?'<br>'+esc(p.adresse):''}</div>`).addTo(map);
+    pop.setLngLat(e.lngLat).setHTML(`<div class="tip">${p.prio>0?`<b style="color:${PCOL[p.prio]}">P${p.prio}</b> · ${esc(p.motif)}<br>`:''}<b>${esc(p.usage||'Usage inconnu')}</b> · ${n0(p.emprise)} m² au sol${p.plancher?' · '+n0(p.plancher)+' m² plancher':''}${p.annee?'<br>Construit en '+p.annee:''}${nz(p.prop)?'<br>Propriétaire : '+esc(p.prop)+(p.nbprop>1?' et '+(p.nbprop-1)+' autre(s)':''):''}${nz(p.adresse)?'<br>'+esc(p.adresse):''}${nz(p.statut)?'<br><b>Suivi : '+esc(p.statut)+'</b>':''}</div>`).addTo(map);
   });
-  map.on('mouseleave','bat-f',()=>{map.getCanvas().style.cursor='';if(hovered!==null)map.setFeatureState({source:'bat',id:hovered},{hover:false});hovered=null;pop.remove()});
+  map.on('mouseleave','bat-f',()=>{map.getCanvas().style.cursor='';if(hovered!==null)map.setFeatureState({source:'t',sourceLayer:'bat',id:hovered},{hover:false});hovered=null;pop.remove()});
   map.on('click','bat-f',e=>openFiche(e.features[0].properties.id));
   map.on('mousemove','etab',e=>{const p=e.features[0].properties;pop.setLngLat(e.lngLat).setHTML(`<div class="tip"><b>${esc(p.nom)}</b><br>NAF ${esc(p.naf)} · effectif ${esc(EFF[p.eff]||p.eff||'')}<br>${p.etat==='A'?'Actif':'Fermé'}</div>`).addTo(map)});
   map.on('mouseleave','etab',()=>pop.remove());
+  map.on('zoomend',()=>{$('zoomhint').style.display=map.getZoom()<12?'block':'none'});
 }
-function closeFiche(){document.getElementById('fiche').classList.remove('open')}
+function vis(id,on){map.getLayer(id)&&map.setLayoutProperty(id,'visibility',on?'visible':'none')}
+
+// Explorateur
+let tq=null;
+function filtres(){return{p_q:$('q').value.trim()||null,p_prio_max:+$('prio').value,p_surface_min:+$('smin').value||0,p_surface_max:+$('smax').value||null,p_statut:$('statut').value||null,p_za:$('za').checked?true:null,p_pm:$('pm').checked?true:null,p_limit:1000}}
+async function chercher(){
+  $('nb').textContent='Recherche…';
+  try{rows=await rpc('carto_recherche',filtres())}catch(e){$('nb').textContent='Erreur '+e.message;return}
+  $('nb').textContent=`${n0(rows.length)} bâtiment${rows.length>1?'s':''}${rows.length>=1000?' (limite 1000)':''}`;
+  $('res').innerHTML=rows.map((r,i)=>`<div class="row" data-i="${i}"><div><span class="pb" style="background:${PCOL[r.prio]}">${r.prio?'P'+r.prio:'·'}</span></div><div><div class="t">${esc(r.proprietaires||r.adresse||r.usage||'Bâtiment')}</div><div class="m">${esc(r.proprietaires?r.adresse||'':'')} ${esc(r.motif||r.usage||'')}</div>${r.statut?`<span class="st">${esc(r.statut)}</span>`:''}</div><div class="s">${n0(r.emprise)} m²<div class="m">${r.annee||''}</div></div></div>`).join('');
+  hlIds=rows.map(r=>r.id);
+  if(map.getLayer('bat-hl'))map.setFilter('bat-hl',['in',['get','id'],['literal',($('q').value||$('statut').value||$('smax').value)?hlIds:[]]]);
+}
+function go(){clearTimeout(tq);tq=setTimeout(chercher,300)}
+['q','prio','statut','smin','smax','za','pm'].forEach(id=>{$(id).addEventListener('input',go);$(id).addEventListener('change',go)});
+$('res').onclick=e=>{const el=e.target.closest('.row');if(!el)return;const r=rows[+el.dataset.i];map.flyTo({center:[r.lon,r.lat],zoom:Math.max(map.getZoom(),17)});openFiche(r.id)};
+$('csv').onclick=()=>{
+  const cols=['prio','motif','usage','emprise','plancher','annee','adresse','proprietaires','siren','za','statut','notes','contact','action','lat','lon','id'];
+  const csv=[cols.join(';')].concat(rows.map(r=>cols.map(c=>'"'+String(r[c]==null?'':r[c]).replace(/"/g,'""')+'"').join(';'))).join('\n');
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['﻿'+csv],{type:'text/csv'}));a.download='iris_map_'+new Date().toISOString().slice(0,10)+'.csv';a.click();
+};
+STATUTS.forEach(s=>{const o=document.createElement('option');o.value=s;o.textContent=s;$('statut').appendChild(o)});
+
+// Adresse
+let ta=null;
+$('adr').addEventListener('input',()=>{clearTimeout(ta);const q=$('adr').value.trim();if(q.length<3){$('sugg').style.display='none';return}
+  ta=setTimeout(async()=>{try{const j=await (await fetch('https://api-adresse.data.gouv.fr/search/?limit=5&q='+encodeURIComponent(q))).json();
+    $('sugg').innerHTML=j.features.map(f=>`<div data-c="${f.geometry.coordinates.join(',')}" data-t="${esc(f.properties.type)}">${esc(f.properties.label)}</div>`).join('');$('sugg').style.display=j.features.length?'block':'none'}catch(e){}},250)});
+$('sugg').onclick=e=>{const d=e.target.closest('div[data-c]');if(!d)return;const c=d.dataset.c.split(',').map(Number);map.flyTo({center:c,zoom:d.dataset.t==='municipality'?13:17});$('sugg').style.display='none';$('adr').value=d.textContent};
+
+// Couches
+$('l-cad').onchange=e=>vis('cad',e.target.checked);
+$('l-ortho').onchange=e=>{vis('ortho',e.target.checked);vis('plan',!e.target.checked)};
+$('l-etab').onchange=e=>vis('etab',e.target.checked);
+$('l-zon').onchange=async e=>{
+  if(e.target.checked&&!map.getSource('zon')){msg('Chargement du zonage…');const z=await rpc('carto_geojson_zonage',{p_code:'37233'});msg('');
+    map.addSource('zon',{type:'geojson',data:z});
+    map.addLayer({id:'zon-f',type:'fill',source:'zon',paint:{'fill-color':['case',['==',['slice',['coalesce',['get','libelle'],''],0,2],'UX'],'#c2551f','#f2b134'],'fill-opacity':.15}},'bat-f');
+    map.addLayer({id:'zon-l',type:'line',source:'zon',paint:{'line-color':'#8a6d1f','line-width':1}},'bat-f');
+    return}
+  ['zon-f','zon-l'].forEach(l=>vis(l,e.target.checked));
+};
+$('toggle').onclick=()=>{$('side').classList.toggle('ferme');setTimeout(()=>map.resize(),220)};
+
+// Fiche
+function closeFiche(){$('fiche').classList.remove('open');if(location.hash.startsWith('#bdnb'))history.replaceState(null,'',location.pathname+location.search)}
 async function openFiche(id){
-  const el=document.getElementById('fiche-c');document.getElementById('fiche').classList.add('open');el.innerHTML='<p style="color:var(--dim)">Chargement…</p>';
+  const el=$('fiche-c');$('fiche').classList.add('open');el.innerHTML='<p style="color:var(--dim)">Chargement…</p>';
   let d;try{d=await rpc('carto_fiche_batiment',{p_id:id})}catch(e){el.innerHTML='<p>Erreur de chargement.</p>';return}
   const b=d.batiment||{};
-  const kv=rows=>'<div class="kv">'+rows.filter(r=>r[1]!==''&&r[1]!=null).map(r=>`<div>${r[0]}</div><div>${r[1]}</div>`).join('')+'</div>';
-  const st=d.surface_terrain, emp=d.emprise_totale_sur_terrain;
-  const ratio=st&&emp?Math.round(emp/st*100):null;
+  const kv=rs=>'<div class="kv">'+rs.filter(r=>r[1]!==''&&r[1]!=null&&r[1]!==' m²').map(r=>`<div>${r[0]}</div><div>${r[1]}</div>`).join('')+'</div>';
+  const st=d.surface_terrain, emp=d.emprise_totale_sur_terrain, ratio=st&&emp?Math.round(emp/st*100):null;
+  let s=await fetch(`${SUPA_URL}/rest/v1/carto_batiments?batiment_groupe_id=eq.${encodeURIComponent(id)}&select=statut_prospection,notes,date_dernier_contact,prochaine_action`,{headers:hdr()}).then(r=>r.json()).then(j=>j[0]||{}).catch(()=>({}));
   let h=`<h2>${esc(b.usage||'Bâtiment')}</h2><div style="color:var(--dim)">${esc(b.adresse||'Adresse non renseignée')}</div>`;
-  if(b.priorite)h+=`<div style="margin-top:8px"><span class="tag" style="color:#fff;background:${['','#b3261e','#e07a2f','#a8841e'][b.priorite]};border:0">Priorité ${b.priorite}</span> ${esc(b.motif||'')}</div>`;
-  h+='<h3>Bâti</h3>'+kv([['Emprise au sol',n0(b.emprise)+' m²'],['Niveaux',b.niveaux],['Plancher estimé',n0(b.plancher_estime)+' m²'],['Hauteur moyenne',b.hauteur?b.hauteur+' m':''],['Année de construction',b.annee],['DPE',b.dpe],['Aléa argile',b.alea_argile],['Conso élec pro 2020',b.conso_elec_pro_mwh?n0(b.conso_elec_pro_mwh)+' MWh':''],['Points de livraison élec pro',b.pdl_elec_pro],['Monument historique',b.monument_historique],['Quartier prioritaire',b.qpv]]);
+  if(b.priorite)h+=`<div style="margin-top:8px"><span class="tag" style="color:#fff;background:${PCOL[b.priorite]};border:0">Priorité ${b.priorite}</span> ${esc(b.motif||'')}</div>`;
+  h+=`<h3>Suivi de prospection</h3><div class="suivi">
+    <select id="s-statut" class="full"><option value="">Statut</option>${STATUTS.map(x=>`<option${s.statut_prospection===x?' selected':''}>${x}</option>`).join('')}</select>
+    <div><div class="lbl">Dernier contact</div><input id="s-date" type="date" value="${esc(s.date_dernier_contact||'')}"></div>
+    <div><div class="lbl">Prochaine action</div><input id="s-action" value="${esc(s.prochaine_action||'')}"></div>
+    <textarea id="s-notes" class="full" rows="3" placeholder="Notes">${esc(s.notes||'')}</textarea>
+    <button class="pri full" onclick="saveSuivi('${esc(id)}')">Enregistrer le suivi</button></div>`;
+  h+='<h3>Bâti</h3>'+kv([['Emprise au sol',n0(b.emprise)+' m²'],['Niveaux',b.niveaux],['Plancher estimé',n0(b.plancher_estime)+' m²'],['Hauteur moyenne',b.hauteur?b.hauteur+' m':''],['Année',b.annee],['DPE',b.dpe],['Aléa argile',b.alea_argile],['Conso élec pro 2020',b.conso_elec_pro_mwh?n0(b.conso_elec_pro_mwh)+' MWh':''],['Monument historique',b.monument_historique]]);
   h+='<h3>Terrain</h3>'+kv([['Surface cadastrale',st?n0(st)+' m²':''],['Emprise bâtie totale',emp?n0(emp)+' m²':''],['Taux d\'emprise',ratio!=null?ratio+' %':''],['Parcelles',(d.parcelles||[]).map(p=>`${esc(p.idu)} (${n0(p.contenance)} m²)`).join('<br>')]]);
-  h+='<h3>Propriétaire</h3>';
-  if(b.proprietaires&&b.proprietaires.length){h+=b.proprietaires.map((n,i)=>{const s=(b.siren||[])[i];return `<div class="occ"><div class="n">${esc(n)}</div><div class="m">${s?`SIREN ${esc(s)} · <a href="https://annuaire-entreprises.data.gouv.fr/entreprise/${esc(s)}" target="_blank">fiche</a> · <a href="https://www.pappers.fr/entreprise/${esc(s)}" target="_blank">Pappers</a>`:''}</div></div>`}).join('')}
-  else h+='<div style="color:var(--dim)">Personne physique ou non renseigné. À identifier par demande au service de publicité foncière ou sur le terrain.</div>';
-  h+='<h3>Zonage PLU</h3>'+((d.zonage||[]).length?d.zonage.map(z=>`<span class="tag">${esc(z.libelle)}</span> ${esc(z.libelong||'')}`).join('<br>'):'<div style="color:var(--dim)">Zonage non chargé</div>');
-  h+='<h3>Ventes DVF</h3>'+((d.mutations||[]).length?'<table class="t"><tr><th>Date</th><th>Type</th><th class="r">Bâti</th><th class="r">Terrain</th><th class="r">Valeur</th></tr>'+d.mutations.map(m=>`<tr><td>${esc(m.date)}</td><td>${esc(m.type)}</td><td class="r">${m.surface_bati?n0(m.surface_bati)+' m²':''}</td><td class="r">${m.surface_terrain?n0(m.surface_terrain)+' m²':''}</td><td class="r">${eur(m.valeur)}</td></tr>`).join('')+'</table>':'<div style="color:var(--dim)">Aucune vente depuis 2021</div>');
+  h+='<h3>Propriétaire</h3>'+((b.proprietaires||[]).length?b.proprietaires.map((n,i)=>{const sr=(b.siren||[])[i];return `<div class="occ"><div class="n">${esc(n)}</div><div class="m">${sr?`SIREN ${esc(sr)} · <a href="https://annuaire-entreprises.data.gouv.fr/entreprise/${esc(sr)}" target="_blank">fiche</a> · <a href="https://www.pappers.fr/entreprise/${esc(sr)}" target="_blank">Pappers</a>`:''}</div></div>`}).join(''):'<div style="color:var(--dim)">Personne physique ou non renseigné.</div>');
+  h+='<h3>Zonage PLU</h3>'+((d.zonage||[]).length?d.zonage.map(z=>`<span class="tag">${esc(z.libelle)}</span> ${esc(z.libelong||'')}`).join('<br>'):'<div style="color:var(--dim)">Non renseigné</div>');
+  h+='<h3>Ventes DVF</h3>'+((d.mutations||[]).length?'<table class="t"><tr><th>Date</th><th>Type</th><th class="r">Bâti</th><th class="r">Valeur</th></tr>'+d.mutations.map(m=>`<tr><td>${esc(m.date)}</td><td>${esc(m.type)}</td><td class="r">${m.surface_bati?n0(m.surface_bati)+' m²':''}</td><td class="r">${m.valeur!=null?n0(m.valeur)+' €':''}</td></tr>`).join('')+'</table>':'<div style="color:var(--dim)">Aucune vente depuis 2021</div>');
   const occ=d.occupants||[];
-  h+=`<h3>Occupants (${occ.length})</h3>`+(occ.length?occ.map(o=>{const dir=(o.dirigeants||[]).slice(0,2).map(x=>x.nom?[x.prenoms,x.nom].filter(Boolean).join(' ')+(x.annee_de_naissance?' ('+x.annee_de_naissance+')':'')+(x.qualite?', '+x.qualite:''):(x.denomination||'')).filter(Boolean).join(' ; ');
-    return `<div class="occ"><div class="n">${esc(o.enseigne||o.nom)} <span class="tag ${o.etat==='A'?'ok':'ko'}">${o.etat==='A'?'actif':'fermé'}</span></div><div class="m">NAF ${esc(o.naf||'')} · effectif ${esc(EFF[o.effectif]||o.effectif||'')} · créé ${esc(o.creation||'')}<br>${dir?'Dirigeants : '+esc(dir)+'<br>':''}<a href="https://annuaire-entreprises.data.gouv.fr/etablissement/${esc(o.siret)}" target="_blank">SIRET ${esc(o.siret)}</a></div></div>`}).join(''):'<div style="color:var(--dim)">Aucun établissement localisé</div>');
-  h+=`<h3>Liens</h3><a href="https://www.geoportail.gouv.fr/carte?c=${map.getCenter().lng},${map.getCenter().lat}&z=18&l0=CADASTRALPARCELS.PARCELLAIRE_EXPRESS::GEOPORTAIL:OGC:WMTS(1)&permalink=yes" target="_blank">Géoportail</a> · <a href="https://www.georisques.gouv.fr/mes-risques/connaitre-les-risques-pres-de-chez-moi" target="_blank">Géorisques</a> · <a href="https://www.geoportail-urbanisme.gouv.fr/map/" target="_blank">Géoportail urbanisme</a>`;
+  h+=`<h3>Occupants (${occ.length})</h3>`+occ.map(o=>{const dir=(o.dirigeants||[]).slice(0,2).map(x=>x.nom?[x.prenoms,x.nom].filter(Boolean).join(' ')+(x.annee_de_naissance?' ('+x.annee_de_naissance+')':''):(x.denomination||'')).filter(Boolean).join(' ; ');
+    return `<div class="occ"><div class="n">${esc(o.enseigne||o.nom)} <span class="tag ${o.etat==='A'?'ok':'ko'}">${o.etat==='A'?'actif':'fermé'}</span></div><div class="m">NAF ${esc(o.naf||'')} · effectif ${esc(EFF[o.effectif]||o.effectif||'')} · créé ${esc(o.creation||'')}${dir?'<br>Dirigeants : '+esc(dir):''}<br><a href="https://annuaire-entreprises.data.gouv.fr/etablissement/${esc(o.siret)}" target="_blank">SIRET ${esc(o.siret)}</a></div></div>`}).join('');
+  const c=map.getCenter();
+  h+=`<h3>Liens</h3><a href="https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${c.lat},${c.lng}" target="_blank">Street View</a> · <a href="https://www.geoportail.gouv.fr/carte?c=${c.lng},${c.lat}&z=18&l0=CADASTRALPARCELS.PARCELLAIRE_EXPRESS::GEOPORTAIL:OGC:WMTS(1)&permalink=yes" target="_blank">Géoportail</a> · <a href="https://www.geoportail-urbanisme.gouv.fr/map/#tile=1&lon=${c.lng}&lat=${c.lat}&zoom=17" target="_blank">Urbanisme</a>`;
   el.innerHTML=h;
+  history.replaceState(null,'','#'+id);
+}
+async function saveSuivi(id){
+  const body={statut_prospection:$('s-statut').value||null,notes:$('s-notes').value||null,date_dernier_contact:$('s-date').value||null,prochaine_action:$('s-action').value||null};
+  const r=await fetch(`${SUPA_URL}/rest/v1/carto_batiments?batiment_groupe_id=eq.${encodeURIComponent(id)}`,{method:'PATCH',headers:{...hdr(),'Prefer':'return=minimal'},body:JSON.stringify(body)});
+  if(!r.ok){msg('Erreur d\'enregistrement '+r.status,3000);return}
+  msg('Suivi enregistré',1500);
+  map.getSource('t').setTiles([`${SUPA_URL}/rest/v1/rpc/carto_mvt?z={z}&x={x}&y={y}`]);
+  chercher();
 }
 
-document.getElementById('f-prio').onchange=applyFilter;
-document.getElementById('b-liste').onclick=()=>{
-  const v=+document.getElementById('f-prio').value||3;
-  const rows=(window._bat?window._bat.features:[]).filter(f=>f.properties.prio>0&&f.properties.prio<=v).sort((a,b)=>a.properties.prio-b.properties.prio||(b.properties.emprise||0)-(a.properties.emprise||0));
-  document.getElementById('fiche').classList.add('open');
-  document.getElementById('fiche-c').innerHTML=`<h2>Priorités (${rows.length})</h2><div style="color:var(--dim);margin-bottom:8px">Triées par priorité puis emprise</div><table class="t"><tr><th>P</th><th>Bâtiment</th><th class="r">Emprise</th></tr>`+rows.map(f=>{const p=f.properties;return `<tr style="cursor:pointer" onclick="zoomTo('${esc(p.id)}')"><td><b>P${p.prio}</b></td><td>${esc(p.prop&&p.prop!=='null'?p.prop:(p.adresse&&p.adresse!=='null'?p.adresse:p.usage||''))}<div style="color:var(--dim);font-size:11px">${esc(p.motif||'')}</div></td><td class="r">${n0(p.emprise)} m²</td></tr>`}).join('')+'</table>';
-};
-function zoomTo(id){const f=window._bat.features.find(x=>x.properties.id===id);if(!f)return;const b=new maplibregl.LngLatBounds();const c=f.geometry.coordinates;(f.geometry.type==='MultiPolygon'?c.flat(2):c.flat(1)).forEach(p=>b.extend(p));map.fitBounds(b,{padding:120,maxZoom:18});openFiche(id)}
-document.getElementById('f-cad').onchange=e=>vis('cad',e.target.checked);
-document.getElementById('f-etab').onchange=e=>vis('etab',e.target.checked);
-document.getElementById('f-zon').onchange=e=>['zon-f','zon-l','zon-t'].forEach(l=>vis(l,e.target.checked));
-document.getElementById('f-ortho').onchange=e=>{vis('ortho',e.target.checked);vis('plan',!e.target.checked)};
-document.getElementById('commune').onchange=e=>load(e.target.value);
-
 map.on('load',async()=>{
-  if(!SUPA_ANON||!(await auth())){msg('');document.getElementById('msg').innerHTML='Session expirée. <a href="index.html">Se connecter au dashboard</a> puis revenir sur cette page.';document.getElementById('msg').style.display='block';return}
-  try{await load(document.getElementById('commune').value)}catch(e){msg('Erreur : '+e.message)}
+  if(!SUPA_ANON||!(await auth())){msg('Session expirée. <a href="index.html">Se connecter au dashboard</a> puis revenir sur cette page.');return}
+  setInterval(auth,10*60*1000);
+  addData();
+  chercher();
+  rpc('carto_stats',{p_code:'37233'}).then(s=>{$('stat').textContent=`Saint Pierre des Corps · ${n0(s.p1)} P1 · ${n0(s.p2)} P2 · ${n0(s.p3)} P3`}).catch(()=>{});
+  const h=location.hash.slice(1);if(h.startsWith('bdnb-'))openFiche(decodeURIComponent(h));
 });
 </script>
 </body>

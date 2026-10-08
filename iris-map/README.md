@@ -29,9 +29,15 @@ Industriel : usage BDNB industriel, entrepôt, agricole ou secondaire, ou établ
 
 Saint Pierre des Corps au 8 octobre 2026 : 117 P1, 254 P2, 184 P3.
 
-## Fonctions lues par la carte
+## Fonctions lues par la carte web
 
-carto_geojson_batiments, carto_geojson_zonage, carto_geojson_etablissements, carto_fiche_batiment, carto_stats. Accès réservé au rôle authenticated, RLS politique iris_auth_all.
+carto_mvt(z,x,y) sert des tuiles vectorielles (bâtiments à partir du zoom 12, cibles seules sous le zoom 15, entreprises dès le zoom 15), environ 70 Ko par tuile. carto_recherche alimente l'explorateur, carto_fiche_batiment la fiche, carto_geojson_zonage la couche PLU chargée à la demande, carto_stats l'en-tête. Accès réservé au rôle authenticated, RLS politique iris_auth_all.
+
+Suivi de prospection : colonnes statut_prospection, notes, date_dernier_contact, prochaine_action de carto_batiments, modifiables depuis la fiche web ou depuis QGIS.
+
+## QGIS
+
+`qgis/IRIS_MAP_QGIS.py`, à exécuter une fois dans la console Python de QGIS. Il crée le projet ~/Documents/IRIS_MAP.qgz connecté en direct à Supabase par l'utilisateur qgis_iris (mot de passe dans la table outils). Vues dédiées : v_qgis_batiments, v_qgis_etablissements, v_qgis_ventes. qgis_iris lit les tables carto et ne peut écrire que les quatre colonnes de suivi.
 
 ## Page
 
