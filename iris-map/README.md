@@ -44,3 +44,11 @@ Suivi de prospection : colonnes statut_prospection, notes, date_dernier_contact,
 `carto.html`, publiée à côté du dashboard sur Cloudflare Pages : https://dashboard-iris-h.pages.dev/carto.html. Dépôt par site-put dans le bucket dashboard-site, puis site-deploy. Elle réutilise la session du dashboard (localStorage `iris_h_tok` et `iris_h_cfg`, même origine).
 
 Ajouter une commune : lancer les fonctions d'ingestion avec son code INSEE, puis ajouter l'option dans le sélecteur de `carto.html`.
+
+## Repérages
+
+Table `carto_reperages` : zones et points dessinés dans QGIS (couches Repérages zones et Repérages points), visibles et modifiables (statut, contact, notes) sur la page web. Surface calculée automatiquement pour les zones.
+
+## Propriétaires enrichis
+
+Table `carto_proprietaires`, alimentée par `carto_enrichir_proprietaire(siren)` depuis l'API Recherche d'entreprises : nature juridique, dirigeants et années de naissance, effectif, finances. Vue `v_carto_cibles_p1` : propriétaires privés des bâtiments P1, hors acteurs publics, réseaux et grandes enseignes.
