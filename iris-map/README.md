@@ -1,0 +1,30 @@
+# IRIS MAP
+
+Outil cartographique de prospection IRIS REP : foncier, investissement off market, location.
+Pilote : Saint Pierre des Corps (INSEE 37233).
+
+## Données
+
+Toutes les données sont chargées dans Supabase (projet kkznkuwoxoxvapejzytv) par la base elle même, via l'extension `http` et des tâches `pg_cron`. Chaque tâche cron est limitée à 2 minutes, d'où un chargement par lots.
+
+| Table | Source | Fonction |
+|---|---|---|
+| carto_parcelles | Cadastre, API Carto IGN | carto_ingest_parcelles(code) |
+| carto_batiments | BDNB CSTB, avec propriétaires personnes morales DGFiP | carto_step_batiments(code), lots de 900 |
+| carto_mutations | DVF géolocalisé, 2021 à 2025 | carto_ingest_dvf(code, annee) |
+| carto_etablissements | API Recherche d'entreprises (SIRENE) | carto_ingest_sirene(code, page, nb_pages) |
+| carto_zonage | Géoportail de l'Urbanisme, API Carto | carto_ingest_zonage(code), relance cron toutes les 15 minutes tant que vide |
+
+Journal : `carto_ingestion_log`. Curseur des lots : `carto_ingestion_etat`.
+
+L'API BDNB anonyme est limitée à 10 bâtiments par appel, 120 appels par minute et 10000 appels par mois. Une commune moyenne consomme environ 500 appels. Pour passer à l'échelle régionale, il faut une clé API BDNB gratuite ou l'import des fichiers départementaux.
+
+## Fonctions lues par la carte
+
+carto_geojson_batiments, carto_geojson_zonage, carto_geojson_etablissements, carto_fiche_batiment, carto_stats. Accès réservé au rôle authenticated, RLS politique iris_auth_all.
+
+## Page
+
+`carto.html`, publiée à côté du dashboard sur Cloudflare Pages. Elle réutilise la session du dashboard (localStorage `iris_h_tok` et `iris_h_cfg`, même origine).
+
+Ajouter une commune : lancer les fonctions d'ingestion avec son code INSEE, puis ajouter l'option dans le sélecteur de `carto.html`.

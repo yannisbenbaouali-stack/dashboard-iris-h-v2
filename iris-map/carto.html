@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IRIS MAP</title>
+<link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<style>
+:root{--bg:#f6f5f2;--panel:#ffffff;--ink:#1d2330;--dim:#5f6475;--line:#e3e1db;--accent:#c2551f;--accent2:#2f5d8a;--ok:#2e7d4f;--ko:#a33a3a}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#14171d;--panel:#1c2028;--ink:#e8e9ec;--dim:#9aa0ad;--line:#2c313b;--accent:#e07a43;--accent2:#6d9fd0;--ok:#5cb784;--ko:#d77272}}
+:root[data-theme="dark"]{--bg:#14171d;--panel:#1c2028;--ink:#e8e9ec;--dim:#9aa0ad;--line:#2c313b;--accent:#e07a43;--accent2:#6d9fd0;--ok:#5cb784;--ko:#d77272}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:13px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+#map{position:absolute;inset:0}
+.bar{position:absolute;top:12px;left:12px;z-index:2;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;box-shadow:0 4px 18px rgba(0,0,0,.12);max-width:300px}
+.bar h1{font-size:14px;margin:0 0 2px;letter-spacing:.04em}
+.bar .sub{color:var(--dim);font-size:11px;margin-bottom:8px}
+.bar label{display:flex;align-items:center;gap:6px;margin:3px 0;cursor:pointer}
+.bar select{width:100%;margin:4px 0 6px;padding:4px;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:6px}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:4px 10px;margin-top:8px;padding-top:8px;border-top:1px solid var(--line);font-size:11px;color:var(--dim)}
+.stats b{color:var(--ink);font-size:13px;display:block}
+.leg{display:inline-block;width:11px;height:11px;border-radius:2px;vertical-align:-1px}
+#fiche{position:absolute;top:0;right:0;bottom:0;width:420px;max-width:100%;z-index:3;background:var(--panel);border-left:1px solid var(--line);overflow:auto;transform:translateX(100%);transition:transform .2s;padding:16px 18px 40px}
+#fiche.open{transform:none}
+#fiche .x{position:sticky;top:0;float:right;background:var(--bg);border:1px solid var(--line);border-radius:6px;color:var(--ink);cursor:pointer;padding:2px 9px;font-size:15px}
+#fiche h2{font-size:16px;margin:0 0 2px}
+#fiche h3{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--dim);margin:18px 0 6px;border-bottom:1px solid var(--line);padding-bottom:4px}
+.kv{display:grid;grid-template-columns:150px 1fr;gap:3px 10px}
+.kv div:nth-child(odd){color:var(--dim)}
+.tag{display:inline-block;padding:1px 7px;border-radius:9px;font-size:11px;background:var(--bg);border:1px solid var(--line);margin:0 4px 4px 0}
+.tag.ok{color:var(--ok);border-color:var(--ok)} .tag.ko{color:var(--ko);border-color:var(--ko)}
+table.t{width:100%;border-collapse:collapse;font-size:12px}
+table.t td,table.t th{padding:4px 4px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+table.t th{color:var(--dim);font-weight:500}
+.r{text-align:right!important;white-space:nowrap}
+.occ{padding:6px 0;border-bottom:1px solid var(--line)}
+.occ .n{font-weight:600}
+.occ .m{color:var(--dim);font-size:11px}
+a{color:var(--accent2)}
+.tip{font:12px/1.4 system-ui,sans-serif;color:#1d2330}
+.tip b{font-size:12.5px}
+.maplibregl-popup-content{padding:8px 10px;border-radius:8px}
+#msg{position:absolute;left:50%;top:14px;transform:translateX(-50%);z-index:4;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 14px;display:none}
+@media (max-width:640px){.bar{left:8px;right:8px;max-width:none;top:8px}#fiche{width:100%}}
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div class="bar">
+  <h1>IRIS MAP</h1>
+  <div class="sub">Prospection IRIS REP · données ouvertes</div>
+  <select id="commune"><option value="37233">Saint Pierre des Corps (37233)</option></select>
+  <label><input type="checkbox" id="f-cible" checked> Cibles seulement <span class="leg" style="background:#c2551f"></span></label>
+  <label><input type="checkbox" id="f-cad" checked> Cadastre</label>
+  <label><input type="checkbox" id="f-etab"> Entreprises (SIRENE)</label>
+  <label><input type="checkbox" id="f-zon"> Zonage PLU</label>
+  <label><input type="checkbox" id="f-ortho"> Photo aérienne</label>
+  <div class="stats" id="stats"></div>
+</div>
+<div id="fiche"><button class="x" onclick="closeFiche()">×</button><div id="fiche-c"></div></div>
+<div id="msg"></div>
+<script>
+const SUPA_URL='https://kkznkuwoxoxvapejzytv.supabase.co';
+const SUPA_ANON=(()=>{try{const c=JSON.parse(localStorage.getItem('iris_h_cfg'));if(c&&c.key)return c.key}catch(e){}return ''})();
+const TOK_KEY='iris_h_tok';
+const EFF={'NN':'non renseigné','00':'0','01':'1 à 2','02':'3 à 5','03':'6 à 9','11':'10 à 19','12':'20 à 49','21':'50 à 99','22':'100 à 199','31':'200 à 249','32':'250 à 499','41':'500 à 999','42':'1000 à 1999','51':'2000 à 4999','52':'5000 à 9999','53':'10000 et plus'};
+let tok=null;
+
+function msg(t){const m=document.getElementById('msg');m.textContent=t||'';m.style.display=t?'block':'none'}
+function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+function n0(v){return v==null||v===''?'':Number(v).toLocaleString('fr-FR',{maximumFractionDigits:0})}
+function eur(v){return v==null?'':n0(v)+' €'}
+
+async function auth(){
+  let t=null;try{t=JSON.parse(localStorage.getItem(TOK_KEY))}catch(e){}
+  if(t&&t.a&&t.e>Date.now()/1000+60){tok=t.a;return true}
+  if(t&&t.r&&SUPA_ANON){
+    const r=await fetch(SUPA_URL+'/auth/v1/token?grant_type=refresh_token',{method:'POST',headers:{'apikey':SUPA_ANON,'Content-Type':'application/json'},body:JSON.stringify({refresh_token:t.r})});
+    if(r.ok){const j=await r.json();tok=j.access_token;try{localStorage.setItem(TOK_KEY,JSON.stringify({a:j.access_token,r:j.refresh_token||'',e:Math.floor(Date.now()/1000)+(j.expires_in||3600)}))}catch(e){}return true}
+  }
+  return false;
+}
+async function rpc(fn,args){
+  const r=await fetch(`${SUPA_URL}/rest/v1/rpc/${fn}`,{method:'POST',headers:{'apikey':SUPA_ANON,'Authorization':'Bearer '+tok,'Content-Type':'application/json'},body:JSON.stringify(args)});
+  if(!r.ok)throw new Error(fn+' '+r.status);return r.json();
+}
+
+const ign=(layer,fmt)=>`https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=${layer}&STYLE=normal&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&FORMAT=${fmt}`;
+const map=new maplibregl.Map({container:'map',center:[0.7262,47.3897],zoom:14,maxZoom:20,
+  style:{version:8,sources:{
+    plan:{type:'raster',tiles:[ign('GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2','image/png')],tileSize:256,maxzoom:19,attribution:'© IGN'},
+    ortho:{type:'raster',tiles:[ign('ORTHOIMAGERY.ORTHOPHOTOS','image/jpeg')],tileSize:256,maxzoom:19},
+    cad:{type:'raster',tiles:[ign('CADASTRALPARCELS.PARCELLAIRE_EXPRESS','image/png')],tileSize:256,maxzoom:19}},
+  layers:[{id:'plan',type:'raster',source:'plan'},
+    {id:'ortho',type:'raster',source:'ortho',layout:{visibility:'none'}},
+    {id:'cad',type:'raster',source:'cad',paint:{'raster-opacity':.7}}]}});
+map.addControl(new maplibregl.NavigationControl(),'bottom-right');
+map.addControl(new maplibregl.ScaleControl({unit:'metric'}),'bottom-left');
+
+const pop=new maplibregl.Popup({closeButton:false,closeOnClick:false,offset:8});
+let hovered=null;
+
+async function load(code){
+  msg('Chargement…');
+  const [bat,zon,etab,st]=await Promise.all([rpc('carto_geojson_batiments',{p_code:code}),rpc('carto_geojson_zonage',{p_code:code}),rpc('carto_geojson_etablissements',{p_code:code}),rpc('carto_stats',{p_code:code})]);
+  bat.features.forEach((f,i)=>f.id=i+1);
+  const add=(id,data)=>{if(map.getSource(id))map.getSource(id).setData(data);else map.addSource(id,{type:'geojson',data})};
+  add('zon',zon);add('bat',bat);add('etab',etab);
+  if(!map.getLayer('zon-f')){
+    map.addLayer({id:'zon-f',type:'fill',source:'zon',layout:{visibility:'none'},paint:{'fill-color':['match',['slice',['coalesce',['get','typezone'],''],0,1],'U','#f2b134','A','#7fb069','N','#4f9d69','#bbbbbb'],'fill-opacity':.18}});
+    map.addLayer({id:'zon-l',type:'line',source:'zon',layout:{visibility:'none'},paint:{'line-color':'#8a6d1f','line-width':1}});
+    map.addLayer({id:'zon-t',type:'symbol',source:'zon',layout:{visibility:'none','text-field':['get','libelle'],'text-size':11},paint:{'text-color':'#5a4510','text-halo-color':'#fff','text-halo-width':1.2}});
+    map.addLayer({id:'bat-f',type:'fill',source:'bat',paint:{
+      'fill-color':['case',['get','cible'],'#c2551f','#8b93a1'],
+      'fill-opacity':['case',['boolean',['feature-state','hover'],false],.9,['get','cible'],.6,.25]}});
+    map.addLayer({id:'bat-l',type:'line',source:'bat',paint:{'line-color':['case',['>',['get','nbprop'],0],'#2f5d8a','#55595f'],'line-width':['case',['>',['get','nbprop'],0],1.6,.5]}});
+    map.addLayer({id:'etab',type:'circle',source:'etab',layout:{visibility:'none'},paint:{'circle-radius':3.5,'circle-color':['case',['==',['get','etat'],'A'],'#2e7d4f','#a33a3a'],'circle-stroke-color':'#fff','circle-stroke-width':1}});
+    hookEvents();
+  }
+  applyFilter();
+  const b=new maplibregl.LngLatBounds();bat.features.forEach(f=>{const c=f.geometry.coordinates;(f.geometry.type==='MultiPolygon'?c.flat(2):c.flat(1)).forEach(p=>b.extend(p))});
+  if(!b.isEmpty())map.fitBounds(b,{padding:40,duration:0});
+  document.getElementById('stats').innerHTML=[['Parcelles',st.parcelles],['Bâtiments',st.batiments],['Cibles ≥ 100 m²',st.batiments_cibles],['Propriétaire société',st.proprietaires_pm],['Ventes DVF',st.mutations],['Établissements',st.etablissements]].map(([k,v])=>`<div><b>${n0(v)}</b>${k}</div>`).join('');
+  msg('');
+}
+function applyFilter(){
+  const only=document.getElementById('f-cible').checked;
+  const f=only?['==',['get','cible'],true]:null;
+  ['bat-f','bat-l'].forEach(l=>map.getLayer(l)&&map.setFilter(l,f));
+}
+function vis(id,on){map.getLayer(id)&&map.setLayoutProperty(id,'visibility',on?'visible':'none')}
+function hookEvents(){
+  map.on('mousemove','bat-f',e=>{
+    const f=e.features[0];map.getCanvas().style.cursor='pointer';
+    if(hovered!==null)map.setFeatureState({source:'bat',id:hovered},{hover:false});
+    hovered=f.id;map.setFeatureState({source:'bat',id:hovered},{hover:true});
+    const p=f.properties;
+    pop.setLngLat(e.lngLat).setHTML(`<div class="tip"><b>${esc(p.usage||'Usage inconnu')}</b><br>Emprise ${n0(p.emprise)} m² · plancher estimé ${n0(p.plancher)} m²${p.annee?'<br>Construit en '+p.annee:''}${p.prop&&p.prop!=='null'?'<br>Propriétaire : '+esc(p.prop)+(p.nbprop>1?' et '+(p.nbprop-1)+' autre(s)':''):''}${p.adresse&&p.adresse!=='null'?'<br>'+esc(p.adresse):''}</div>`).addTo(map);
+  });
+  map.on('mouseleave','bat-f',()=>{map.getCanvas().style.cursor='';if(hovered!==null)map.setFeatureState({source:'bat',id:hovered},{hover:false});hovered=null;pop.remove()});
+  map.on('click','bat-f',e=>openFiche(e.features[0].properties.id));
+  map.on('mousemove','etab',e=>{const p=e.features[0].properties;pop.setLngLat(e.lngLat).setHTML(`<div class="tip"><b>${esc(p.nom)}</b><br>NAF ${esc(p.naf)} · effectif ${esc(EFF[p.eff]||p.eff||'')}<br>${p.etat==='A'?'Actif':'Fermé'}</div>`).addTo(map)});
+  map.on('mouseleave','etab',()=>pop.remove());
+}
+function closeFiche(){document.getElementById('fiche').classList.remove('open')}
+async function openFiche(id){
+  const el=document.getElementById('fiche-c');document.getElementById('fiche').classList.add('open');el.innerHTML='<p style="color:var(--dim)">Chargement…</p>';
+  let d;try{d=await rpc('carto_fiche_batiment',{p_id:id})}catch(e){el.innerHTML='<p>Erreur de chargement.</p>';return}
+  const b=d.batiment||{};
+  const kv=rows=>'<div class="kv">'+rows.filter(r=>r[1]!==''&&r[1]!=null).map(r=>`<div>${r[0]}</div><div>${r[1]}</div>`).join('')+'</div>';
+  const st=d.surface_terrain, emp=d.emprise_totale_sur_terrain;
+  const ratio=st&&emp?Math.round(emp/st*100):null;
+  let h=`<h2>${esc(b.usage||'Bâtiment')}</h2><div style="color:var(--dim)">${esc(b.adresse||'Adresse non renseignée')}</div>`;
+  h+='<h3>Bâti</h3>'+kv([['Emprise au sol',n0(b.emprise)+' m²'],['Niveaux',b.niveaux],['Plancher estimé',n0(b.plancher_estime)+' m²'],['Hauteur moyenne',b.hauteur?b.hauteur+' m':''],['Année de construction',b.annee],['DPE',b.dpe],['Aléa argile',b.alea_argile],['Conso élec pro 2020',b.conso_elec_pro_mwh?n0(b.conso_elec_pro_mwh)+' MWh':''],['Points de livraison élec pro',b.pdl_elec_pro],['Monument historique',b.monument_historique],['Quartier prioritaire',b.qpv]]);
+  h+='<h3>Terrain</h3>'+kv([['Surface cadastrale',st?n0(st)+' m²':''],['Emprise bâtie totale',emp?n0(emp)+' m²':''],['Taux d\'emprise',ratio!=null?ratio+' %':''],['Parcelles',(d.parcelles||[]).map(p=>`${esc(p.idu)} (${n0(p.contenance)} m²)`).join('<br>')]]);
+  h+='<h3>Propriétaire</h3>';
+  if(b.proprietaires&&b.proprietaires.length){h+=b.proprietaires.map((n,i)=>{const s=(b.siren||[])[i];return `<div class="occ"><div class="n">${esc(n)}</div><div class="m">${s?`SIREN ${esc(s)} · <a href="https://annuaire-entreprises.data.gouv.fr/entreprise/${esc(s)}" target="_blank">fiche</a> · <a href="https://www.pappers.fr/entreprise/${esc(s)}" target="_blank">Pappers</a>`:''}</div></div>`}).join('')}
+  else h+='<div style="color:var(--dim)">Personne physique ou non renseigné. À identifier par demande au service de publicité foncière ou sur le terrain.</div>';
+  h+='<h3>Zonage PLU</h3>'+((d.zonage||[]).length?d.zonage.map(z=>`<span class="tag">${esc(z.libelle)}</span> ${esc(z.libelong||'')}`).join('<br>'):'<div style="color:var(--dim)">Zonage non chargé</div>');
+  h+='<h3>Ventes DVF</h3>'+((d.mutations||[]).length?'<table class="t"><tr><th>Date</th><th>Type</th><th class="r">Bâti</th><th class="r">Terrain</th><th class="r">Valeur</th></tr>'+d.mutations.map(m=>`<tr><td>${esc(m.date)}</td><td>${esc(m.type)}</td><td class="r">${m.surface_bati?n0(m.surface_bati)+' m²':''}</td><td class="r">${m.surface_terrain?n0(m.surface_terrain)+' m²':''}</td><td class="r">${eur(m.valeur)}</td></tr>`).join('')+'</table>':'<div style="color:var(--dim)">Aucune vente depuis 2021</div>');
+  const occ=d.occupants||[];
+  h+=`<h3>Occupants (${occ.length})</h3>`+(occ.length?occ.map(o=>{const dir=(o.dirigeants||[]).slice(0,2).map(x=>x.nom?[x.prenoms,x.nom].filter(Boolean).join(' ')+(x.annee_de_naissance?' ('+x.annee_de_naissance+')':'')+(x.qualite?', '+x.qualite:''):(x.denomination||'')).filter(Boolean).join(' ; ');
+    return `<div class="occ"><div class="n">${esc(o.enseigne||o.nom)} <span class="tag ${o.etat==='A'?'ok':'ko'}">${o.etat==='A'?'actif':'fermé'}</span></div><div class="m">NAF ${esc(o.naf||'')} · effectif ${esc(EFF[o.effectif]||o.effectif||'')} · créé ${esc(o.creation||'')}<br>${dir?'Dirigeants : '+esc(dir)+'<br>':''}<a href="https://annuaire-entreprises.data.gouv.fr/etablissement/${esc(o.siret)}" target="_blank">SIRET ${esc(o.siret)}</a></div></div>`}).join(''):'<div style="color:var(--dim)">Aucun établissement localisé</div>');
+  h+=`<h3>Liens</h3><a href="https://www.geoportail.gouv.fr/carte?c=${map.getCenter().lng},${map.getCenter().lat}&z=18&l0=CADASTRALPARCELS.PARCELLAIRE_EXPRESS::GEOPORTAIL:OGC:WMTS(1)&permalink=yes" target="_blank">Géoportail</a> · <a href="https://www.georisques.gouv.fr/mes-risques/connaitre-les-risques-pres-de-chez-moi" target="_blank">Géorisques</a> · <a href="https://www.geoportail-urbanisme.gouv.fr/map/" target="_blank">Géoportail urbanisme</a>`;
+  el.innerHTML=h;
+}
+
+document.getElementById('f-cible').onchange=applyFilter;
+document.getElementById('f-cad').onchange=e=>vis('cad',e.target.checked);
+document.getElementById('f-etab').onchange=e=>vis('etab',e.target.checked);
+document.getElementById('f-zon').onchange=e=>['zon-f','zon-l','zon-t'].forEach(l=>vis(l,e.target.checked));
+document.getElementById('f-ortho').onchange=e=>{vis('ortho',e.target.checked);vis('plan',!e.target.checked)};
+document.getElementById('commune').onchange=e=>load(e.target.value);
+
+map.on('load',async()=>{
+  if(!SUPA_ANON||!(await auth())){msg('');document.getElementById('msg').innerHTML='Session expirée. <a href="index.html">Se connecter au dashboard</a> puis revenir sur cette page.';document.getElementById('msg').style.display='block';return}
+  try{await load(document.getElementById('commune').value)}catch(e){msg('Erreur : '+e.message)}
+});
+</script>
+</body>
+</html>
