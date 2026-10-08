@@ -104,7 +104,8 @@ a{color:var(--accent2)}
 <div id="msg"></div>
 <script>
 const SUPA_URL='https://kkznkuwoxoxvapejzytv.supabase.co';
-const SUPA_ANON=(()=>{try{const c=JSON.parse(localStorage.getItem('iris_h_cfg'));if(c&&c.key)return c.key}catch(e){}return ''})();
+// Clé publique anon du projet, identique à celle du dashboard (non secrète)
+const SUPA_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtrem5rdXdveG94dmFwZWp6eXR2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMzNTQxMTksImV4cCI6MjA4ODkzMDExOX0.Nb7N2FpKvm3NMzS6Nhx4qWoqHZW3-Es3JNPgHxkOWcE';
 const TOK_KEY='iris_h_tok';
 const STATUTS=['À contacter','Contacté','Rendez vous','Mandat vendeur','Mandat recherche','À vendre','Pas vendeur','À revoir','Écarté'];
 const PCOL=['#9aa0ad','#b3261e','#e07a2f','#c9a227'];
@@ -120,6 +121,9 @@ function nz(v){return v&&v!=='null'?v:''}
 async function auth(){
   let t=null;try{t=JSON.parse(localStorage.getItem(TOK_KEY))}catch(e){}
   if(t&&t.a&&t.e>Date.now()/1000+60){tok=t.a;return true}
+  try{const sj=JSON.parse(localStorage.getItem('sb-kkznkuwoxoxvapejzytv-auth-token'));const ss=sj&&(sj.currentSession||sj);
+    if(ss&&ss.access_token&&(ss.expires_at||0)>Date.now()/1000+60){tok=ss.access_token;return true}
+    if(ss&&ss.refresh_token&&!(t&&t.r))t={r:ss.refresh_token}}catch(e){}
   if(t&&t.r&&SUPA_ANON){
     const r=await fetch(SUPA_URL+'/auth/v1/token?grant_type=refresh_token',{method:'POST',headers:{'apikey':SUPA_ANON,'Content-Type':'application/json'},body:JSON.stringify({refresh_token:t.r})});
     if(r.ok){const j=await r.json();tok=j.access_token;try{localStorage.setItem(TOK_KEY,JSON.stringify({a:j.access_token,r:j.refresh_token||'',e:Math.floor(Date.now()/1000)+(j.expires_in||3600)}))}catch(e){}return true}
@@ -127,7 +131,10 @@ async function auth(){
   return false;
 }
 const hdr=()=>({'apikey':SUPA_ANON,'Authorization':'Bearer '+tok,'Content-Type':'application/json'});
-async function rpc(fn,args){const r=await fetch(`${SUPA_URL}/rest/v1/rpc/${fn}`,{method:'POST',headers:hdr(),body:JSON.stringify(args)});if(!r.ok)throw new Error(fn+' '+r.status);return r.json()}
+async function rpc(fn,args,retry){const r=await fetch(`${SUPA_URL}/rest/v1/rpc/${fn}`,{method:'POST',headers:hdr(),body:JSON.stringify(args)});
+  if(r.status===401&&!retry){try{localStorage.removeItem(TOK_KEY)}catch(e){};if(await auth())return rpc(fn,args,true);sessionKO();throw new Error('session')}
+  if(!r.ok){const tx=await r.text().catch(()=>'');msg('Erreur '+fn+' '+r.status+' '+esc(tx.slice(0,160)),8000);throw new Error(fn+' '+r.status)}return r.json()}
+function sessionKO(){msg('Session expirée. <a href="index.html">Se connecter au dashboard</a> puis revenir sur cette page.')}
 
 const ign=(layer,fmt)=>`https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=${layer}&STYLE=normal&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&FORMAT=${fmt}`;
 const map=new maplibregl.Map({container:'map',center:[0.7262,47.3897],zoom:14,maxZoom:20,
@@ -171,6 +178,7 @@ function addData(){
   map.on('mousemove','etab',e=>{const p=e.features[0].properties;pop.setLngLat(e.lngLat).setHTML(`<div class="tip"><b>${esc(p.nom)}</b><br>NAF ${esc(p.naf)} · effectif ${esc(EFF[p.eff]||p.eff||'')}<br>${p.etat==='A'?'Actif':'Fermé'}</div>`).addTo(map)});
   map.on('mouseleave','etab',()=>pop.remove());
   map.on('zoomend',()=>{$('zoomhint').style.display=map.getZoom()<12?'block':'none'});
+  map.on('error',e=>{const st=e&&e.error&&e.error.status;if(e.sourceId==='t'&&st){if(st===401)sessionKO();else msg('Erreur de chargement des bâtiments '+st,6000)}});
 }
 function vis(id,on){map.getLayer(id)&&map.setLayoutProperty(id,'visibility',on?'visible':'none')}
 
@@ -272,7 +280,7 @@ async function saveSuivi(id){
 }
 
 map.on('load',async()=>{
-  if(!SUPA_ANON||!(await auth())){msg('Session expirée. <a href="index.html">Se connecter au dashboard</a> puis revenir sur cette page.');return}
+  if(!(await auth())){sessionKO();return}
   setInterval(auth,10*60*1000);
   addData();
   chercher();
