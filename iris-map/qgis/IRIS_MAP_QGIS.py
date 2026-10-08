@@ -26,6 +26,8 @@ HOTES = [
 AUTH_NOM = 'IRIS MAP Supabase'
 PROJET = os.path.join(os.path.expanduser('~'), 'Documents', 'IRIS_MAP.qgz')
 STATUTS = ['À contacter', 'Contacté', 'Rendez vous', 'Mandat vendeur', 'Mandat recherche', 'À vendre', 'Pas vendeur', 'À revoir', 'Écarté']
+TYPES_REP = ['Terrain nu', 'Bâtiment vacant', 'Panneau à vendre', 'Panneau à louer', 'Friche', 'Périmètre de prospection', 'Autre']
+STATUTS_REP = ['À qualifier', 'Propriétaire identifié', 'Contacté', 'Mandat', 'Écarté']
 
 
 def auth_config(user, pwd):
@@ -199,6 +201,27 @@ def main():
     zon.setMapTipTemplate('<b>[% "libelle" %]</b><br>[% "libelong" %]')
     pj.addMapLayer(zon, False)
     donnees.addLayer(zon).setItemVisibilityChecked(False)
+
+    # Repérages, dessinables et partagés avec la page web
+    for nom_couche, wkb, filtre, couleur in [
+        ('Repérages zones', QgsWkbTypes.MultiPolygon, "GeometryType(geom) IN ('POLYGON','MULTIPOLYGON')", '#7b2cbf'),
+        ('Repérages points', QgsWkbTypes.Point, "GeometryType(geom) = 'POINT'", '#7b2cbf'),
+    ]:
+        rep = QgsVectorLayer(uri_pg(hote, cid, 'carto_reperages', 'geom', 'id', wkb, filtre), nom_couche, 'postgres')
+        if wkb == QgsWkbTypes.Point:
+            rep.renderer().setSymbol(QgsMarkerSymbol.createSimple({'name': 'star', 'color': couleur, 'outline_color': '#ffffff', 'size': '4'}))
+        else:
+            sym = QgsFillSymbol.createSimple({'color': '123,44,191,60', 'outline_color': couleur, 'outline_width': '0.6', 'outline_style': 'dash'})
+            rep.renderer().setSymbol(sym)
+        etiquettes(rep, 'nom', 9, couleur)
+        lecture_seule(rep, ['nom', 'type_reperage', 'statut', 'contact', 'notes', 'date_reperage', 'auteur'])
+        rep.setEditorWidgetSetup(rep.fields().indexOf('type_reperage'), QgsEditorWidgetSetup('ValueMap', {'map': [{s: s} for s in TYPES_REP]}))
+        rep.setEditorWidgetSetup(rep.fields().indexOf('statut'), QgsEditorWidgetSetup('ValueMap', {'map': [{s: s} for s in STATUTS_REP]}))
+        rep.setEditorWidgetSetup(rep.fields().indexOf('notes'), QgsEditorWidgetSetup('TextEdit', {'IsMultiline': True}))
+        rep.setEditorWidgetSetup(rep.fields().indexOf('date_reperage'), QgsEditorWidgetSetup('DateTime', {'calendar_popup': True, 'display_format': 'dd/MM/yyyy', 'field_format': 'yyyy-MM-dd'}))
+        rep.setMapTipTemplate('<b>[% "nom" %]</b> · [% "type_reperage" %]<br>[% "statut" %][% CASE WHEN "surface_m2" IS NOT NULL THEN \' · \' || format_number("surface_m2",0) || \' m²\' END %]<br>[% "notes" %]')
+        pj.addMapLayer(rep, False)
+        donnees.insertLayer(0, rep)
 
     # Parcelles vectorielles, pour sélectionner et mesurer
     par = QgsVectorLayer(uri_pg(hote, cid, 'carto_parcelles', 'geom', 'idu', QgsWkbTypes.MultiPolygon), 'Parcelles (sélection)', 'postgres')

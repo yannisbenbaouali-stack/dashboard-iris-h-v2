@@ -95,6 +95,7 @@ a{color:var(--accent2)}
       <label class="chk"><input type="checkbox" id="l-ortho"> Photo aérienne</label>
       <label class="chk"><input type="checkbox" id="l-etab"> Entreprises</label>
       <label class="chk"><input type="checkbox" id="l-zon"> Zonage PLU</label>
+      <label class="chk"><input type="checkbox" id="l-rep" checked> Repérages <span class="leg" style="background:#7b2cbf;margin-left:3px"></span></label>
     </div>
     <div id="zoomhint">Zoomez pour afficher les bâtiments</div>
     <div id="fiche"><button class="x" onclick="closeFiche()">×</button><div id="fiche-c"></div></div>
@@ -150,6 +151,14 @@ function addData(){
   map.addLayer({id:'bat-suivi',type:'line',source:'t','source-layer':'bat',filter:['has','statut'],paint:{'line-color':'#111','line-width':2.4,'line-dasharray':[2,1]}});
   map.addLayer({id:'bat-hl',type:'line',source:'t','source-layer':'bat',filter:['in',['get','id'],['literal',[]]],paint:{'line-color':'#00a3ff','line-width':3}});
   map.addLayer({id:'etab',type:'circle',source:'t','source-layer':'etab',layout:{visibility:'none'},paint:{'circle-radius':3.5,'circle-color':['case',['==',['get','etat'],'A'],'#2e7d4f','#a33a3a'],'circle-stroke-color':'#fff','circle-stroke-width':1}});
+  map.addLayer({id:'rep-f',type:'fill',source:'t','source-layer':'rep',filter:['==',['geometry-type'],'Polygon'],paint:{'fill-color':'#7b2cbf','fill-opacity':.22}});
+  map.addLayer({id:'rep-l',type:'line',source:'t','source-layer':'rep',filter:['==',['geometry-type'],'Polygon'],paint:{'line-color':'#7b2cbf','line-width':2,'line-dasharray':[3,2]}});
+  map.addLayer({id:'rep-p',type:'circle',source:'t','source-layer':'rep',filter:['==',['geometry-type'],'Point'],paint:{'circle-radius':7,'circle-color':'#7b2cbf','circle-stroke-color':'#fff','circle-stroke-width':2}});
+  ['rep-f','rep-p'].forEach(l=>{
+    map.on('click',l,e=>{e.preventDefault();openRep(e.features[0].properties)});
+    map.on('mouseenter',l,()=>map.getCanvas().style.cursor='pointer');
+    map.on('mouseleave',l,()=>map.getCanvas().style.cursor='');
+  });
   map.on('mousemove','bat-f',e=>{
     const f=e.features[0];map.getCanvas().style.cursor='pointer';
     if(hovered!==null)map.setFeatureState({source:'t',sourceLayer:'bat',id:hovered},{hover:false});
@@ -158,7 +167,7 @@ function addData(){
     pop.setLngLat(e.lngLat).setHTML(`<div class="tip">${p.prio>0?`<b style="color:${PCOL[p.prio]}">P${p.prio}</b> · ${esc(p.motif)}<br>`:''}<b>${esc(p.usage||'Usage inconnu')}</b> · ${n0(p.emprise)} m² au sol${p.plancher?' · '+n0(p.plancher)+' m² plancher':''}${p.annee?'<br>Construit en '+p.annee:''}${nz(p.prop)?'<br>Propriétaire : '+esc(p.prop)+(p.nbprop>1?' et '+(p.nbprop-1)+' autre(s)':''):''}${nz(p.adresse)?'<br>'+esc(p.adresse):''}${nz(p.statut)?'<br><b>Suivi : '+esc(p.statut)+'</b>':''}</div>`).addTo(map);
   });
   map.on('mouseleave','bat-f',()=>{map.getCanvas().style.cursor='';if(hovered!==null)map.setFeatureState({source:'t',sourceLayer:'bat',id:hovered},{hover:false});hovered=null;pop.remove()});
-  map.on('click','bat-f',e=>openFiche(e.features[0].properties.id));
+  map.on('click','bat-f',e=>{if(e.defaultPrevented)return;if(map.queryRenderedFeatures(e.point,{layers:['rep-f','rep-p']}).length)return;openFiche(e.features[0].properties.id)});
   map.on('mousemove','etab',e=>{const p=e.features[0].properties;pop.setLngLat(e.lngLat).setHTML(`<div class="tip"><b>${esc(p.nom)}</b><br>NAF ${esc(p.naf)} · effectif ${esc(EFF[p.eff]||p.eff||'')}<br>${p.etat==='A'?'Actif':'Fermé'}</div>`).addTo(map)});
   map.on('mouseleave','etab',()=>pop.remove());
   map.on('zoomend',()=>{$('zoomhint').style.display=map.getZoom()<12?'block':'none'});
@@ -205,6 +214,22 @@ $('l-zon').onchange=async e=>{
     return}
   ['zon-f','zon-l'].forEach(l=>vis(l,e.target.checked));
 };
+$('l-rep').onchange=e=>['rep-f','rep-l','rep-p'].forEach(l=>vis(l,e.target.checked));
+const STATUTS_REP=['À qualifier','Propriétaire identifié','Contacté','Mandat','Écarté'];
+function openRep(p){
+  $('fiche').classList.add('open');
+  $('fiche-c').innerHTML=`<h2>${esc(p.nom||'Repérage')}</h2><div style="color:var(--dim)">${esc(nz(p.typ)||'')} ${p.surface?'· '+n0(p.surface)+' m²':''} · repéré le ${esc(p.dt||'')}</div>
+  <h3>Suivi</h3><div class="suivi"><select id="r-statut" class="full">${STATUTS_REP.map(x=>`<option${p.statut===x?' selected':''}>${x}</option>`).join('')}</select>
+  <input id="r-contact" class="full" placeholder="Contact" value="${esc(nz(p.contact))}">
+  <textarea id="r-notes" class="full" rows="4" placeholder="Notes">${esc(nz(p.notes))}</textarea>
+  <button class="pri full" onclick="saveRep('${esc(p.id)}')">Enregistrer</button></div>
+  <div style="color:var(--dim);font-size:11px;margin-top:10px">Dessin et déplacement des repérages dans QGIS.</div>`;
+}
+async function saveRep(id){
+  const r=await fetch(`${SUPA_URL}/rest/v1/carto_reperages?id=eq.${encodeURIComponent(id)}`,{method:'PATCH',headers:{...hdr(),'Prefer':'return=minimal'},body:JSON.stringify({statut:$('r-statut').value,contact:$('r-contact').value||null,notes:$('r-notes').value||null})});
+  msg(r.ok?'Repérage enregistré':'Erreur '+r.status,1500);
+  if(r.ok)map.getSource('t').setTiles([`${SUPA_URL}/rest/v1/rpc/carto_mvt?z={z}&x={x}&y={y}`]);
+}
 $('toggle').onclick=()=>{$('side').classList.toggle('ferme');setTimeout(()=>map.resize(),220)};
 
 // Fiche
