@@ -51,7 +51,14 @@ a{color:var(--accent2)}
   <h1>IRIS MAP</h1>
   <div class="sub">Prospection IRIS REP · données ouvertes</div>
   <select id="commune"><option value="37233">Saint Pierre des Corps (37233)</option></select>
-  <label><input type="checkbox" id="f-cible" checked> Cibles seulement <span class="leg" style="background:#c2551f"></span></label>
+  <select id="f-prio">
+    <option value="1">Priorité 1 : industriel en zone d'activité</option>
+    <option value="2" selected>Priorités 1 et 2</option>
+    <option value="3">Toutes les cibles (P1 à P3)</option>
+    <option value="0">Tous les bâtiments</option>
+  </select>
+  <div style="font-size:11px;color:var(--dim);margin-bottom:4px"><span class="leg" style="background:#b3261e"></span> P1 &nbsp;<span class="leg" style="background:#e07a2f"></span> P2 &nbsp;<span class="leg" style="background:#d9b44a"></span> P3 &nbsp;<span class="leg" style="background:#8b93a1"></span> autre</div>
+  <button id="b-liste" style="width:100%;margin:2px 0 6px;padding:5px;border-radius:6px;border:1px solid var(--line);background:var(--bg);color:var(--ink);cursor:pointer">Liste des priorités</button>
   <label><input type="checkbox" id="f-cad" checked> Cadastre</label>
   <label><input type="checkbox" id="f-etab"> Entreprises (SIRENE)</label>
   <label><input type="checkbox" id="f-zon"> Zonage PLU</label>
@@ -112,8 +119,8 @@ async function load(code){
     map.addLayer({id:'zon-l',type:'line',source:'zon',layout:{visibility:'none'},paint:{'line-color':'#8a6d1f','line-width':1}});
     map.addLayer({id:'zon-t',type:'symbol',source:'zon',layout:{visibility:'none','text-field':['get','libelle'],'text-size':11},paint:{'text-color':'#5a4510','text-halo-color':'#fff','text-halo-width':1.2}});
     map.addLayer({id:'bat-f',type:'fill',source:'bat',paint:{
-      'fill-color':['case',['get','cible'],'#c2551f','#8b93a1'],
-      'fill-opacity':['case',['boolean',['feature-state','hover'],false],.9,['get','cible'],.6,.25]}});
+      'fill-color':['match',['get','prio'],1,'#b3261e',2,'#e07a2f',3,'#d9b44a','#8b93a1'],
+      'fill-opacity':['case',['boolean',['feature-state','hover'],false],.95,['>',['get','prio'],0],.7,.25]}});
     map.addLayer({id:'bat-l',type:'line',source:'bat',paint:{'line-color':['case',['>',['get','nbprop'],0],'#2f5d8a','#55595f'],'line-width':['case',['>',['get','nbprop'],0],1.6,.5]}});
     map.addLayer({id:'etab',type:'circle',source:'etab',layout:{visibility:'none'},paint:{'circle-radius':3.5,'circle-color':['case',['==',['get','etat'],'A'],'#2e7d4f','#a33a3a'],'circle-stroke-color':'#fff','circle-stroke-width':1}});
     hookEvents();
@@ -121,12 +128,13 @@ async function load(code){
   applyFilter();
   const b=new maplibregl.LngLatBounds();bat.features.forEach(f=>{const c=f.geometry.coordinates;(f.geometry.type==='MultiPolygon'?c.flat(2):c.flat(1)).forEach(p=>b.extend(p))});
   if(!b.isEmpty())map.fitBounds(b,{padding:40,duration:0});
-  document.getElementById('stats').innerHTML=[['Parcelles',st.parcelles],['Bâtiments',st.batiments],['Cibles ≥ 100 m²',st.batiments_cibles],['Propriétaire société',st.proprietaires_pm],['Ventes DVF',st.mutations],['Établissements',st.etablissements]].map(([k,v])=>`<div><b>${n0(v)}</b>${k}</div>`).join('');
+  window._bat=bat;
+  document.getElementById('stats').innerHTML=[['Priorité 1',st.p1],['Priorité 2',st.p2],['Priorité 3',st.p3],['Cibles propriétaire société',st.proprietaires_pm],['Bâtiments',st.batiments],['Parcelles',st.parcelles],['Ventes DVF',st.mutations],['Établissements',st.etablissements]].map(([k,v])=>`<div><b>${n0(v)}</b>${k}</div>`).join('')+(st.zonage?'':'<div style="grid-column:1/3;color:var(--ko)">Zonage PLU en attente, serveur IGN indisponible. Priorités provisoires.</div>');
   msg('');
 }
 function applyFilter(){
-  const only=document.getElementById('f-cible').checked;
-  const f=only?['==',['get','cible'],true]:null;
+  const v=+document.getElementById('f-prio').value;
+  const f=v?['all',['>',['get','prio'],0],['<=',['get','prio'],v]]:null;
   ['bat-f','bat-l'].forEach(l=>map.getLayer(l)&&map.setFilter(l,f));
 }
 function vis(id,on){map.getLayer(id)&&map.setLayoutProperty(id,'visibility',on?'visible':'none')}
@@ -136,7 +144,7 @@ function hookEvents(){
     if(hovered!==null)map.setFeatureState({source:'bat',id:hovered},{hover:false});
     hovered=f.id;map.setFeatureState({source:'bat',id:hovered},{hover:true});
     const p=f.properties;
-    pop.setLngLat(e.lngLat).setHTML(`<div class="tip"><b>${esc(p.usage||'Usage inconnu')}</b><br>Emprise ${n0(p.emprise)} m² · plancher estimé ${n0(p.plancher)} m²${p.annee?'<br>Construit en '+p.annee:''}${p.prop&&p.prop!=='null'?'<br>Propriétaire : '+esc(p.prop)+(p.nbprop>1?' et '+(p.nbprop-1)+' autre(s)':''):''}${p.adresse&&p.adresse!=='null'?'<br>'+esc(p.adresse):''}</div>`).addTo(map);
+    pop.setLngLat(e.lngLat).setHTML(`<div class="tip">${p.prio>0?'<b style="color:'+['','#b3261e','#e07a2f','#a8841e'][p.prio]+'">P'+p.prio+'</b> · '+esc(p.motif)+'<br>':''}<b>${esc(p.usage||'Usage inconnu')}</b><br>Emprise ${n0(p.emprise)} m² · plancher estimé ${n0(p.plancher)} m²${p.annee?'<br>Construit en '+p.annee:''}${p.prop&&p.prop!=='null'?'<br>Propriétaire : '+esc(p.prop)+(p.nbprop>1?' et '+(p.nbprop-1)+' autre(s)':''):''}${p.adresse&&p.adresse!=='null'?'<br>'+esc(p.adresse):''}</div>`).addTo(map);
   });
   map.on('mouseleave','bat-f',()=>{map.getCanvas().style.cursor='';if(hovered!==null)map.setFeatureState({source:'bat',id:hovered},{hover:false});hovered=null;pop.remove()});
   map.on('click','bat-f',e=>openFiche(e.features[0].properties.id));
@@ -152,6 +160,7 @@ async function openFiche(id){
   const st=d.surface_terrain, emp=d.emprise_totale_sur_terrain;
   const ratio=st&&emp?Math.round(emp/st*100):null;
   let h=`<h2>${esc(b.usage||'Bâtiment')}</h2><div style="color:var(--dim)">${esc(b.adresse||'Adresse non renseignée')}</div>`;
+  if(b.priorite)h+=`<div style="margin-top:8px"><span class="tag" style="color:#fff;background:${['','#b3261e','#e07a2f','#a8841e'][b.priorite]};border:0">Priorité ${b.priorite}</span> ${esc(b.motif||'')}</div>`;
   h+='<h3>Bâti</h3>'+kv([['Emprise au sol',n0(b.emprise)+' m²'],['Niveaux',b.niveaux],['Plancher estimé',n0(b.plancher_estime)+' m²'],['Hauteur moyenne',b.hauteur?b.hauteur+' m':''],['Année de construction',b.annee],['DPE',b.dpe],['Aléa argile',b.alea_argile],['Conso élec pro 2020',b.conso_elec_pro_mwh?n0(b.conso_elec_pro_mwh)+' MWh':''],['Points de livraison élec pro',b.pdl_elec_pro],['Monument historique',b.monument_historique],['Quartier prioritaire',b.qpv]]);
   h+='<h3>Terrain</h3>'+kv([['Surface cadastrale',st?n0(st)+' m²':''],['Emprise bâtie totale',emp?n0(emp)+' m²':''],['Taux d\'emprise',ratio!=null?ratio+' %':''],['Parcelles',(d.parcelles||[]).map(p=>`${esc(p.idu)} (${n0(p.contenance)} m²)`).join('<br>')]]);
   h+='<h3>Propriétaire</h3>';
@@ -166,7 +175,14 @@ async function openFiche(id){
   el.innerHTML=h;
 }
 
-document.getElementById('f-cible').onchange=applyFilter;
+document.getElementById('f-prio').onchange=applyFilter;
+document.getElementById('b-liste').onclick=()=>{
+  const v=+document.getElementById('f-prio').value||3;
+  const rows=(window._bat?window._bat.features:[]).filter(f=>f.properties.prio>0&&f.properties.prio<=v).sort((a,b)=>a.properties.prio-b.properties.prio||(b.properties.emprise||0)-(a.properties.emprise||0));
+  document.getElementById('fiche').classList.add('open');
+  document.getElementById('fiche-c').innerHTML=`<h2>Priorités (${rows.length})</h2><div style="color:var(--dim);margin-bottom:8px">Triées par priorité puis emprise</div><table class="t"><tr><th>P</th><th>Bâtiment</th><th class="r">Emprise</th></tr>`+rows.map(f=>{const p=f.properties;return `<tr style="cursor:pointer" onclick="zoomTo('${esc(p.id)}')"><td><b>P${p.prio}</b></td><td>${esc(p.prop&&p.prop!=='null'?p.prop:(p.adresse&&p.adresse!=='null'?p.adresse:p.usage||''))}<div style="color:var(--dim);font-size:11px">${esc(p.motif||'')}</div></td><td class="r">${n0(p.emprise)} m²</td></tr>`}).join('')+'</table>';
+};
+function zoomTo(id){const f=window._bat.features.find(x=>x.properties.id===id);if(!f)return;const b=new maplibregl.LngLatBounds();const c=f.geometry.coordinates;(f.geometry.type==='MultiPolygon'?c.flat(2):c.flat(1)).forEach(p=>b.extend(p));map.fitBounds(b,{padding:120,maxZoom:18});openFiche(id)}
 document.getElementById('f-cad').onchange=e=>vis('cad',e.target.checked);
 document.getElementById('f-etab').onchange=e=>vis('etab',e.target.checked);
 document.getElementById('f-zon').onchange=e=>['zon-f','zon-l','zon-t'].forEach(l=>vis(l,e.target.checked));
