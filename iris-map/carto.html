@@ -101,7 +101,8 @@ a{color:var(--accent2)}
       <div style="margin-bottom:4px"><span class="leg" style="background:var(--p1)"></span>P1 <span class="leg" style="background:var(--p2)"></span>P2 <span class="leg" style="background:var(--p3)"></span>P3 <span class="leg" style="background:#9aa0ad"></span>autre</div>
       <label class="chk"><input type="checkbox" id="l-cad" checked> Cadastre</label>
       <label class="chk"><input type="checkbox" id="l-ortho"> Photo aérienne</label>
-      <label class="chk"><input type="checkbox" id="l-etab"> Entreprises</label>
+      <label class="chk"><input type="checkbox" id="l-ent" checked> Entreprises des locaux d'activité <span class="leg" style="background:#e3121b;border-radius:50%;margin-left:3px"></span></label>
+      <label class="chk"><input type="checkbox" id="l-etab"> Toutes les entreprises</label>
       <label class="chk"><input type="checkbox" id="l-zon"> Zonage PLU</label>
       <label class="chk"><input type="checkbox" id="l-rep" checked> Repérages <span class="leg" style="background:#7b2cbf;margin-left:3px"></span></label>
       <details id="pub"><summary>Données publiques</summary><div id="pub-list"></div></details>
@@ -166,6 +167,10 @@ function addData(){
   map.addLayer({id:'bat-l',type:'line',source:'t','source-layer':'bat',paint:{'line-color':['case',['>',['get','nbprop'],0],'#2f5d8a','#55595f'],'line-width':['case',['>',['get','nbprop'],0],1.4,.4]}});
   map.addLayer({id:'bat-suivi',type:'line',source:'t','source-layer':'bat',filter:['has','statut'],paint:{'line-color':'#111','line-width':2.4,'line-dasharray':[2,1]}});
   map.addLayer({id:'bat-hl',type:'line',source:'t','source-layer':'bat',filter:['in',['get','id'],['literal',[]]],paint:{'line-color':'#00a3ff','line-width':3}});
+  map.addLayer({id:'ent',type:'circle',source:'t','source-layer':'ent',paint:{'circle-radius':['interpolate',['linear'],['zoom'],12,2,15,3.5,18,5],'circle-color':'#e3121b','circle-stroke-color':['match',['get','role'],'Propriétaire','#111','#fff'],'circle-stroke-width':['match',['get','role'],'Propriétaire',1.4,.8]}});
+  map.on('mousemove','ent',e=>{const p=e.features[0].properties;map.getCanvas().style.cursor='pointer';pop.setLngLat(e.lngLat).setHTML(`<div class="tip"><b>${esc(p.nom)}</b><br>${esc(p.role)}${p.prio?' · bâtiment P'+p.prio:''}${nz(p.naf)?'<br>NAF '+esc(p.naf):''}${nz(p.eff)?' · effectif '+esc(EFF[p.eff]||p.eff):''}${nz(p.siren)?'<br>SIREN '+esc(p.siren):''}</div>`).addTo(map)});
+  map.on('mouseleave','ent',()=>{map.getCanvas().style.cursor='';pop.remove()});
+  map.on('click','ent',e=>{e.preventDefault();openFiche(e.features[0].properties.bat)});
   map.addLayer({id:'etab',type:'circle',source:'t','source-layer':'etab',layout:{visibility:'none'},paint:{'circle-radius':3.5,'circle-color':['case',['==',['get','etat'],'A'],'#2e7d4f','#a33a3a'],'circle-stroke-color':'#fff','circle-stroke-width':1}});
   map.addLayer({id:'rep-f',type:'fill',source:'t','source-layer':'rep',filter:['==',['geometry-type'],'Polygon'],paint:{'fill-color':'#7b2cbf','fill-opacity':.22}});
   map.addLayer({id:'rep-l',type:'line',source:'t','source-layer':'rep',filter:['==',['geometry-type'],'Polygon'],paint:{'line-color':'#7b2cbf','line-width':2,'line-dasharray':[3,2]}});
@@ -183,7 +188,7 @@ function addData(){
     pop.setLngLat(e.lngLat).setHTML(`<div class="tip">${p.prio>0?`<b style="color:${PCOL[p.prio]}">P${p.prio}</b> · ${esc(p.motif)}<br>`:''}<b>${esc(p.usage||'Usage inconnu')}</b> · ${n0(p.emprise)} m² au sol${p.plancher?' · '+n0(p.plancher)+' m² plancher':''}${p.annee?'<br>Construit en '+p.annee:''}${nz(p.prop)?'<br>Propriétaire : '+esc(p.prop)+(p.nbprop>1?' et '+(p.nbprop-1)+' autre(s)':''):''}${nz(p.adresse)?'<br>'+esc(p.adresse):''}${nz(p.statut)?'<br><b>Suivi : '+esc(p.statut)+'</b>':''}</div>`).addTo(map);
   });
   map.on('mouseleave','bat-f',()=>{map.getCanvas().style.cursor='';if(hovered!==null)map.setFeatureState({source:'t',sourceLayer:'bat',id:hovered},{hover:false});hovered=null;pop.remove()});
-  map.on('click','bat-f',e=>{if(e.defaultPrevented)return;if(map.queryRenderedFeatures(e.point,{layers:['rep-f','rep-p']}).length)return;openFiche(e.features[0].properties.id)});
+  map.on('click','bat-f',e=>{if(e.defaultPrevented)return;if(map.queryRenderedFeatures(e.point,{layers:['rep-f','rep-p','ent']}).length)return;openFiche(e.features[0].properties.id)});
   map.on('mousemove','etab',e=>{const p=e.features[0].properties;pop.setLngLat(e.lngLat).setHTML(`<div class="tip"><b>${esc(p.nom)}</b><br>NAF ${esc(p.naf)} · effectif ${esc(EFF[p.eff]||p.eff||'')}<br>${p.etat==='A'?'Actif':'Fermé'}</div>`).addTo(map)});
   map.on('mouseleave','etab',()=>pop.remove());
   map.on('zoomend',()=>{$('zoomhint').style.display=map.getZoom()<12?'block':'none'});
@@ -258,6 +263,7 @@ $('pub-list').addEventListener('change',e=>{const i=e.target.dataset.pub;if(i==n
 $('l-cad').onchange=e=>vis('cad',e.target.checked);
 $('l-ortho').onchange=e=>{vis('ortho',e.target.checked);vis('plan',!e.target.checked)};
 $('l-etab').onchange=e=>vis('etab',e.target.checked);
+$('l-ent').onchange=e=>vis('ent',e.target.checked);
 $('l-zon').onchange=async e=>{
   if(e.target.checked&&!map.getSource('zon')){msg('Chargement du zonage…');const z=await rpc('carto_geojson_zonage',{p_code:'37233'});msg('');
     map.addSource('zon',{type:'geojson',data:z});
