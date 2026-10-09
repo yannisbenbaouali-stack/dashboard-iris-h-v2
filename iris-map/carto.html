@@ -17,7 +17,11 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:13px/1
 #side.ferme{margin-left:-380px}
 #map{flex:1;position:relative}
 .hd{padding:12px 14px 8px;border-bottom:1px solid var(--line)}
-.hd h1{font-size:15px;margin:0;letter-spacing:.04em}
+.hd h1{font-size:1.4rem;font-weight:700;margin:0;line-height:1.2}
+.hd h1 a{color:var(--ink);text-decoration:none}
+.hd h1 a:hover{opacity:.8}
+.hd h1 .b{color:#5b9bd5;font-weight:400}
+.hd h1 .sep{opacity:.45;font-weight:400;margin:0 2px}
 .hd .sub{color:var(--dim);font-size:11px}
 .ctl{padding:10px 14px;border-bottom:1px solid var(--line);display:grid;grid-template-columns:1fr 1fr;gap:6px}
 .ctl .full{grid-column:1/3}
@@ -77,7 +81,7 @@ a{color:var(--accent2)}
 <body>
 <div id="app">
   <aside id="side">
-    <div class="hd"><h1>IRIS MAP</h1><div class="sub">Prospection IRIS REP · <span id="stat"></span></div></div>
+    <div class="hd"><h1><a href="index.html" title="Retour au dashboard">IRIS <span class="b">H</span></a> <span class="sep">|</span> <span class="b">MAP</span></h1><div class="sub">Prospection IRIS REP · <span id="stat"></span></div></div>
     <div class="ctl">
       <input class="full" id="q" placeholder="Propriétaire, SIREN, adresse, occupant, NAF, note…">
       <div><div class="lbl">Priorité</div><select id="prio"><option value="1">P1</option><option value="2">P1 et P2</option><option value="3" selected>P1 à P3</option><option value="0">Tous</option></select></div>
@@ -324,7 +328,8 @@ map.on('load',async()=>{
   setInterval(auth,10*60*1000);
   addData();
   chercher();
-  rpc('carto_stats',{p_code:'37233'}).then(s=>{$('stat').textContent=`Saint Pierre des Corps · ${n0(s.p1)} P1 · ${n0(s.p2)} P2 · ${n0(s.p3)} P3`}).catch(()=>{});
+  const stats=(n)=>rpc('carto_stats',{p_code:'37233'}).then(s=>{$('stat').textContent=`Saint Pierre des Corps · ${n0(s.p1)} P1 · ${n0(s.p2)} P2 · ${n0(s.p3)} P3`}).catch(()=>{if(n)setTimeout(()=>stats(n-1),3000)});
+  stats(2);
   const h=location.hash.slice(1);if(h.startsWith('bdnb-'))openFiche(decodeURIComponent(h));
 });
 </script>
