@@ -52,6 +52,9 @@ label.chk input{width:auto}
 #layers details{margin-top:6px;border-top:1px solid var(--line);padding-top:4px}
 #layers summary{cursor:pointer;font-weight:600;font-size:11.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.05em}
 #layers .grp{font-size:10.5px;color:var(--dim);margin:6px 0 2px;text-transform:uppercase;letter-spacing:.05em}
+#layers .legbox{font-size:10.5px;color:var(--dim);margin:2px 0 4px 18px;line-height:1.7}
+.zlab{font:600 11px system-ui,sans-serif;color:#1d2330;background:rgba(255,255,255,.8);border-radius:3px;padding:0 3px;pointer-events:none}
+.dz{display:inline-block;min-width:74px}.d-ok{color:var(--ok)}.d-ko{color:var(--ko)}.d-mid{color:#b07d10}
 #layers .leg{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:3px;vertical-align:-1px}
 #zoomhint{position:absolute;bottom:34px;left:50%;transform:translateX(-50%);z-index:3;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:5px 12px;font-size:12px;display:none}
 #fiche{position:absolute;top:0;right:0;bottom:0;width:430px;max-width:100%;z-index:4;background:var(--panel);border-left:1px solid var(--line);overflow:auto;transform:translateX(100%);transition:transform .2s;padding:14px 18px 40px}
@@ -104,7 +107,10 @@ a{color:var(--accent2)}
       <label class="chk"><input type="checkbox" id="l-fon"> Foncier <span class="leg" style="background:#2e9e44;margin-left:3px"></span><span class="leg" style="background:#f2c230"></span><span class="leg" style="background:#f07c1c"></span></label>
       <label class="chk"><input type="checkbox" id="l-ent" checked> Entreprises des locaux d'activité <span class="leg" style="background:#e3121b;border-radius:50%;margin-left:3px"></span></label>
       <label class="chk"><input type="checkbox" id="l-etab"> Toutes les entreprises</label>
-      <label class="chk"><input type="checkbox" id="l-zon"> Zonage PLU</label>
+      <label class="chk"><input type="checkbox" id="l-zon"> PLU, zones et règles</label>
+      <div id="leg-plu" class="legbox" style="display:none"></div>
+      <label class="chk"><input type="checkbox" id="l-ppri"> PPRI, zones inondables</label>
+      <div id="leg-ppri" class="legbox" style="display:none"></div>
       <label class="chk"><input type="checkbox" id="l-rep" checked> Repérages <span class="leg" style="background:#7b2cbf;margin-left:3px"></span></label>
       <details id="pub"><summary>Données publiques</summary><div id="pub-list"></div></details>
     </div>
@@ -271,13 +277,72 @@ $('l-ortho').onchange=e=>{vis('ortho',e.target.checked);vis('plan',!e.target.che
 $('l-etab').onchange=e=>vis('etab',e.target.checked);
 $('l-ent').onchange=e=>vis('ent',e.target.checked);
 $('l-fon').onchange=e=>{['fon-f','fon-l'].forEach(l=>vis(l,e.target.checked));if(e.target.checked&&map.getZoom()<13)msg('Foncier visible à partir du zoom 13',2500)};
+// PLU et PPRI
+const PLU_COL={UA:'#d9534f',UB:'#f08a4b',UC:'#f4c542',US:'#5bc0de',UX:'#8e44ad','1AU':'#f7a6a6',A:'#b5d36a',N:'#3d9970'};
+const PLU_NOM={UA:'UA centre',UB:'UB mixte',UC:'UC pavillonnaire',US:'US sports',UX:'UX activités','1AU':'1AU à urbaniser',A:'A agricole',N:'N naturelle'};
+const ALEA_COL={M:'#fde68a',F:'#fb923c','F+':'#c2410c',TF:'#ef4444','TF+':'#991b1b',ZDE:'#7c3aed',EP:'#2563eb',EM:'#1e3a8a'};
+const ALEA_NOM={M:'modéré',F:'fort','F+':'fort fréquent',TF:'très fort','TF+':'très fort fréquent',ZDE:'dissipation d\'énergie',EP:'écoulement préférentiel',EM:'lit mineur'};
+const DST={autorisee:['autorisé','d-ok'],sous_conditions:['sous conditions','d-mid'],interdite:['interdit','d-ko'],non_precise:['non précisé','']};
+const dst=v=>{const x=DST[v]||['?',''];return `<span class="${x[1]}">${x[0]}</span>`};
+const pct=v=>v==null||v===''?'PPRI ou non fixé':v+' %';
+let zlabs=[];
+function zoneHTML(p){
+  return `<h2>Zone ${esc(p.code)}</h2><div style="color:var(--dim)">${esc(p.libelle||'')} · ${p.surface_ha} ha</div>
+  <p>${esc(p.vocation||'')}</p>
+  <h3>Destinations</h3><div class="kv"><div>Industrie</div><div>${dst(p.industrie)}</div><div>Entrepôt</div><div>${dst(p.entrepot)}</div><div>Bureau</div><div>${dst(p.bureau)}</div><div>Commerce</div><div>${dst(p.commerce)}</div><div>Logement</div><div>${dst(p.logement)}</div></div>
+  <p style="font-size:12px">${esc(p.conditions||'')}</p>
+  <h3>Gabarit</h3><div class="kv"><div>Emprise au sol</div><div>${pct(p.emprise)}</div><div>Hauteur max</div><div>${p.hauteur?p.hauteur+' m':'non fixée'}</div></div>
+  <p style="font-size:12px">${esc(p.emprise_texte||'')}<br>${esc(p.hauteur_texte||'')}<br>${esc(p.implantation||'')}</p>
+  <h3>Stationnement et espaces verts</h3><p style="font-size:12px">${esc(p.stat_activite||'')}<br>${esc(p.stat_bureaux||'')}<br>${esc(p.espaces_verts||'')}</p>
+  <h3>Lecture IRIS</h3><p>${esc(p.lecture||'')}</p>
+  <h3>Points de vigilance</h3><p style="font-size:12px">${esc(p.vigilance||'')}</p>
+  <div style="color:var(--dim);font-size:11px">Règlement PLU Saint Pierre des Corps, modification n°1 du 12/12/2022, pages ${esc(p.pages||'')}. Lecture à confirmer auprès du service instructeur.</div>`}
+function ppriHTML(p){
+  return `<h2>PPRI ${esc(p.code)}</h2><div style="color:var(--dim)">${esc(p.libelle||'')}</div>
+  <h3>Activité neuve</h3><div class="kv"><div>Construction neuve</div><div>${p.neuf_activite==='interdit'?'<span class="d-ko">interdite</span>':p.neuf_activite==='autorise'?'<span class="d-ok">admise</span>':'<span class="d-mid">sous conditions</span>'}</div>
+  <div>Emprise sous PHEC</div><div>${p.emprise_sous_phec!=null?p.emprise_sous_phec+' %':'non plafonnée'}</div><div>Emprise totale</div><div>${p.emprise_totale!=null?p.emprise_totale+' %':'non plafonnée'}</div></div>
+  <p style="font-size:12px">${esc(p.activites_neuves||'')}</p><p style="font-size:12px">${esc(p.emprise_activites||'')}</p>
+  <h3>Existant</h3><p style="font-size:12px">${esc(p.extensions||'')}</p>
+  <h3>Cote de plancher</h3><p style="font-size:12px">${esc(p.cote_plancher||'')}</p>
+  <h3>Lecture IRIS</h3><p>${esc(p.lecture||'')}</p>
+  <div style="color:var(--dim);font-size:11px">PPRI Val de Tours Val de Luynes, arrêté du 18/07/2016, pages ${esc(p.pages||'')}.</div>`}
+function openHTML(h){$('fiche').classList.add('open');$('fiche-c').innerHTML=h}
+const surObjet=pt=>map.queryRenderedFeatures(pt,{layers:['bat-f','ent','rep-f','rep-p','fon-f'].filter(l=>map.getLayer(l)&&map.getLayoutProperty(l,'visibility')!=='none')}).length>0;
+function majLabels(){const on=$('l-zon').checked&&map.getZoom()>=13;zlabs.forEach(m=>m.getElement().style.display=on?'':'none')}
 $('l-zon').onchange=async e=>{
-  if(e.target.checked&&!map.getSource('zon')){msg('Chargement du zonage…');const z=await rpc('carto_geojson_zonage',{p_code:'37233'});msg('');
+  const on=e.target.checked;$('leg-plu').style.display=on?'':'none';
+  if(on&&!map.getSource('zon')){msg('Chargement du PLU…');let z;try{z=await rpc('carto_geojson_plu',{p_code:'37233'})}catch(x){e.target.checked=false;return}msg('');
     map.addSource('zon',{type:'geojson',data:z});
-    map.addLayer({id:'zon-f',type:'fill',source:'zon',paint:{'fill-color':['case',['==',['slice',['coalesce',['get','libelle'],''],0,2],'UX'],'#c2551f','#f2b134'],'fill-opacity':.15}},'bat-f');
-    map.addLayer({id:'zon-l',type:'line',source:'zon',paint:{'line-color':'#8a6d1f','line-width':1}},'bat-f');
+    const col=['match',['get','famille']];Object.entries(PLU_COL).forEach(([k,v])=>col.push(k,v));col.push('#999');
+    const avant=map.getLayer('fon-f')?'fon-f':'bat-f';
+    map.addLayer({id:'zon-f',type:'fill',source:'zon',paint:{'fill-color':col,'fill-opacity':.28}},avant);
+    map.addLayer({id:'zon-l',type:'line',source:'zon',paint:{'line-color':col,'line-width':1.6}},avant);
+    $('leg-plu').innerHTML=Object.entries(PLU_NOM).map(([k,v])=>`<span class="leg" style="background:${PLU_COL[k]}"></span>${v}`).join('<br>');
+    zlabs=z.features.filter(f=>f.properties.lp&&f.properties.surface_ha>=1).map(f=>{const d=document.createElement('div');d.className='zlab';d.textContent=f.properties.code;return new maplibregl.Marker({element:d}).setLngLat(f.properties.lp).addTo(map)});
+    map.on('zoomend',majLabels);
+    map.on('mousemove','zon-f',e2=>{if(surObjet(e2.point))return;const p=e2.features[0].properties;
+      pop.setLngLat(e2.lngLat).setHTML(`<div class="tip"><b>Zone ${esc(p.code)}</b> · ${esc(p.libelle||'')}<br>Industrie ${dst(p.industrie)} · Entrepôt ${dst(p.entrepot)} · Bureau ${dst(p.bureau)}<br>Emprise ${pct(p.emprise)} · Hauteur ${p.hauteur?p.hauteur+' m':'non fixée'}<br><i>Clic pour la fiche de zone</i></div>`).addTo(map)});
+    map.on('mouseleave','zon-f',()=>pop.remove());
+    map.on('click','zon-f',e2=>{if(e2.defaultPrevented||surObjet(e2.point))return;const ps=map.queryRenderedFeatures(e2.point,{layers:['ppri-f']});
+      openHTML(zoneHTML(e2.features[0].properties)+(ps.length?'<hr>'+ppriHTML(ps[0].properties):''))});
+    majLabels();return}
+  ['zon-f','zon-l'].forEach(l=>vis(l,on));majLabels();
+};
+$('l-ppri').onchange=async e=>{
+  const on=e.target.checked;$('leg-ppri').style.display=on?'':'none';
+  if(on&&!map.getSource('ppri')){msg('Chargement du PPRI…');let z;try{z=await rpc('carto_geojson_ppri',{p_code:'37233'})}catch(x){e.target.checked=false;return}msg('');
+    map.addSource('ppri',{type:'geojson',data:z});
+    const col=['match',['get','alea']];Object.entries(ALEA_COL).forEach(([k,v])=>col.push(k,v));col.push('#999');
+    const avant=map.getLayer('zon-f')?'zon-f':(map.getLayer('fon-f')?'fon-f':'bat-f');
+    map.addLayer({id:'ppri-f',type:'fill',source:'ppri',paint:{'fill-color':col,'fill-opacity':.33}},avant);
+    map.addLayer({id:'ppri-l',type:'line',source:'ppri',paint:{'line-color':col,'line-width':.8,'line-dasharray':[2,1]}},avant);
+    $('leg-ppri').innerHTML=Object.entries(ALEA_NOM).map(([k,v])=>`<span class="leg" style="background:${ALEA_COL[k]}"></span>${v}`).join('<br>')+'<br>A peu urbanisé, B urbanisé, C centre';
+    map.on('mousemove','ppri-f',e2=>{if(surObjet(e2.point)||(map.getLayer('zon-f')&&map.getLayoutProperty('zon-f','visibility')!=='none'&&map.queryRenderedFeatures(e2.point,{layers:['zon-f']}).length))return;const p=e2.features[0].properties;
+      pop.setLngLat(e2.lngLat).setHTML(`<div class="tip"><b>PPRI ${esc(p.code)}</b><br>${esc(p.libelle||'')}<br>Activité neuve : ${p.neuf_activite==='interdit'?'interdite':p.neuf_activite==='autorise'?'admise':'sous conditions'}${p.emprise_totale!=null?'<br>Emprise '+p.emprise_sous_phec+' % sous PHEC, '+p.emprise_totale+' % au total':''}</div>`).addTo(map)});
+    map.on('mouseleave','ppri-f',()=>pop.remove());
+    map.on('click','ppri-f',e2=>{if(e2.defaultPrevented||surObjet(e2.point))return;if(map.getLayer('zon-f')&&map.getLayoutProperty('zon-f','visibility')!=='none'&&map.queryRenderedFeatures(e2.point,{layers:['zon-f']}).length)return;openHTML(ppriHTML(e2.features[0].properties))});
     return}
-  ['zon-f','zon-l'].forEach(l=>vis(l,e.target.checked));
+  ['ppri-f','ppri-l'].forEach(l=>vis(l,on));
 };
 $('l-rep').onchange=e=>['rep-f','rep-l','rep-p'].forEach(l=>vis(l,e.target.checked));
 const STATUTS_REP=['À qualifier','Propriétaire identifié','Contacté','Mandat','Écarté'];
@@ -317,7 +382,7 @@ async function openFiche(id){
   h+='<h3>Bâti</h3>'+kv([['Emprise au sol',n0(b.emprise)+' m²'],['Niveaux',b.niveaux],['Plancher estimé',n0(b.plancher_estime)+' m²'],['Hauteur moyenne',b.hauteur?b.hauteur+' m':''],['Année',b.annee],['DPE',b.dpe],['Aléa argile',b.alea_argile],['Conso élec pro 2020',b.conso_elec_pro_mwh?n0(b.conso_elec_pro_mwh)+' MWh':''],['Monument historique',b.monument_historique]]);
   h+='<h3>Terrain</h3>'+kv([['Surface cadastrale',st?n0(st)+' m²':''],['Emprise bâtie totale',emp?n0(emp)+' m²':''],['Taux d\'emprise',ratio!=null?ratio+' %':''],['Parcelles',(d.parcelles||[]).map(p=>`${esc(p.idu)} (${n0(p.contenance)} m²)`).join('<br>')]]);
   h+='<h3>Propriétaire</h3>'+((b.proprietaires||[]).length?b.proprietaires.map((n,i)=>{const sr=(b.siren||[])[i];return `<div class="occ"><div class="n">${esc(n)}</div><div class="m">${sr?`SIREN ${esc(sr)} · <a href="https://annuaire-entreprises.data.gouv.fr/entreprise/${esc(sr)}" target="_blank">fiche</a> · <a href="https://www.pappers.fr/entreprise/${esc(sr)}" target="_blank">Pappers</a>`:''}</div></div>`}).join(''):'<div style="color:var(--dim)">Personne physique ou non renseigné.</div>');
-  h+='<h3>Zonage PLU</h3>'+((d.zonage||[]).length?d.zonage.map(z=>`<span class="tag">${esc(z.libelle)}</span> ${esc(z.libelong||'')}`).join('<br>'):'<div style="color:var(--dim)">Non renseigné</div>');
+  h+='<h3>Urbanisme et capacité</h3><div id="urba"><div style="color:var(--dim)">Chargement…</div></div>';
   h+='<h3>Ventes DVF</h3>'+((d.mutations||[]).length?'<table class="t"><tr><th>Date</th><th>Type</th><th class="r">Bâti</th><th class="r">Valeur</th></tr>'+d.mutations.map(m=>`<tr><td>${esc(m.date)}</td><td>${esc(m.type)}</td><td class="r">${m.surface_bati?n0(m.surface_bati)+' m²':''}</td><td class="r">${m.valeur!=null?n0(m.valeur)+' €':''}</td></tr>`).join('')+'</table>':'<div style="color:var(--dim)">Aucune vente depuis 2021</div>');
   const occ=d.occupants||[];
   h+=`<h3>Occupants (${occ.length})</h3>`+occ.map(o=>{const dir=(o.dirigeants||[]).slice(0,2).map(x=>x.nom?[x.prenoms,x.nom].filter(Boolean).join(' ')+(x.annee_de_naissance?' ('+x.annee_de_naissance+')':''):(x.denomination||'')).filter(Boolean).join(' ; ');
@@ -326,7 +391,26 @@ async function openFiche(id){
   h+=`<h3>Liens</h3><a href="https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${c.lat},${c.lng}" target="_blank">Street View</a> · <a href="https://www.geoportail.gouv.fr/carte?c=${c.lng},${c.lat}&z=18&l0=CADASTRALPARCELS.PARCELLAIRE_EXPRESS::GEOPORTAIL:OGC:WMTS(1)&permalink=yes" target="_blank">Géoportail</a> · <a href="https://www.geoportail-urbanisme.gouv.fr/map/#tile=1&lon=${c.lng}&lat=${c.lat}&zoom=17" target="_blank">Urbanisme</a>`;
   el.innerHTML=h;
   history.replaceState(null,'','#'+id);
+  rpc('carto_urba_batiment',{p_id:id}).then(u=>{const ue=$('urba');if(ue)ue.innerHTML=urbaHTML(u)}).catch(()=>{const ue=$('urba');if(ue)ue.innerHTML='<div style="color:var(--dim)">Non disponible</div>'});
 }
+function urbaHTML(u){
+  const pl=u.plu, pd=u.ppri_dominant, c=u.capacite||{}, T=u.terrain||0, E=u.emprise_existante||0;
+  let h='';
+  if(pl)h+=`<div><span class="tag" style="background:${PLU_COL[pl.code.startsWith('1AU')?'1AU':/^U[ABCSX]/.test(pl.code)?pl.code.slice(0,2):pl.code[0]]||'#999'};color:#fff;border:0">PLU ${esc(pl.code)}</span> ${esc(pl.libelle||'')}</div>
+    <div class="kv"><div>Industrie</div><div>${dst(pl.industrie)}</div><div>Entrepôt</div><div>${dst(pl.entrepot)}</div><div>Bureau</div><div>${dst(pl.bureau)}</div><div>Emprise PLU</div><div>${pct(pl.emprise)}</div><div>Hauteur max</div><div>${pl.hauteur?pl.hauteur+' m':'non fixée'}</div></div>`;
+  else h+='<div style="color:var(--dim)">Zone PLU non trouvée</div>';
+  if(pd)h+=`<div style="margin-top:6px"><span class="tag" style="background:${ALEA_COL[pd.code.slice(1)]||'#999'};color:#fff;border:0">PPRI ${esc(pd.code)}</span> ${esc(pd.libelle||'')}${(u.ppri||[]).length>1?'<br><span style="color:var(--dim);font-size:11px">Terrain partagé : '+u.ppri.map(x=>x.code+' '+x.part+' %').join(', ')+'</span>':''}</div>
+    <div class="kv"><div>Activité neuve</div><div>${pd.neuf_activite==='interdit'?'<span class="d-ko">interdite</span>':pd.neuf_activite==='autorise'?'<span class="d-ok">admise</span>':'<span class="d-mid">sous conditions</span>'}</div></div>`;
+  if(T){
+    const pp=c.pct_plain_pied, pt=c.pct_total;
+    const lig=(lab,p)=>p==null?`<div>${lab}</div><div>non plafonnée par le PLU ni le PPRI</div>`:`<div>${lab}</div><div>${Math.round(p)} %, soit ${n0(T*p/100)} m² · reste ${n0(Math.max(0,T*p/100-E))} m²</div>`;
+    h+='<div class="kv" style="margin-top:6px">'+lig('Emprise plain pied max',pp)+lig('Emprise totale max',pt)+`<div>Emprise existante</div><div>${n0(E)} m² (${Math.round(E/T*100)} %)</div></div>`;
+    if(pp!=null&&E>T*pp/100)h+='<div style="font-size:11.5px;color:var(--ko)">Emprise existante au dessus du plafond actuel : toute démolition reconstruction perd des m², extension limitée aux règles de l\'existant.</div>';
+  }
+  if(pd&&pd.extensions)h+=`<p style="font-size:11.5px"><b>Existant :</b> ${esc(pd.extensions)}</p>`;
+  if(pl&&pl.lecture)h+=`<p style="font-size:12px"><b>Lecture IRIS :</b> ${esc(pl.lecture)}</p>`;
+  h+='<div style="color:var(--dim);font-size:11px">Capacité théorique : plafond le plus strict entre PLU et PPRI, plain pied = partie sous PHEC. Hors stationnement, espaces verts et reculs. À confirmer par un certificat d\'urbanisme.</div>';
+  return h}
 async function saveSuivi(id){
   const body={statut_prospection:$('s-statut').value||null,notes:$('s-notes').value||null,date_dernier_contact:$('s-date').value||null,prochaine_action:$('s-action').value||null};
   const r=await fetch(`${SUPA_URL}/rest/v1/carto_batiments?batiment_groupe_id=eq.${encodeURIComponent(id)}`,{method:'PATCH',headers:{...hdr(),'Prefer':'return=minimal'},body:JSON.stringify(body)});
