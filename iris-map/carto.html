@@ -44,6 +44,10 @@ label.chk input{width:auto}
 #sugg div{padding:6px 8px;cursor:pointer;border-bottom:1px solid var(--line)}
 #sugg div:hover{background:var(--bg)}
 #layers{position:absolute;top:10px;right:10px;z-index:3;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 10px;box-shadow:0 2px 8px rgba(0,0,0,.15);font-size:12px}
+#layers{max-height:calc(100% - 80px);overflow:auto;max-width:270px}
+#layers details{margin-top:6px;border-top:1px solid var(--line);padding-top:4px}
+#layers summary{cursor:pointer;font-weight:600;font-size:11.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.05em}
+#layers .grp{font-size:10.5px;color:var(--dim);margin:6px 0 2px;text-transform:uppercase;letter-spacing:.05em}
 #layers .leg{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:3px;vertical-align:-1px}
 #zoomhint{position:absolute;bottom:34px;left:50%;transform:translateX(-50%);z-index:3;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:5px 12px;font-size:12px;display:none}
 #fiche{position:absolute;top:0;right:0;bottom:0;width:430px;max-width:100%;z-index:4;background:var(--panel);border-left:1px solid var(--line);overflow:auto;transform:translateX(100%);transition:transform .2s;padding:14px 18px 40px}
@@ -96,6 +100,7 @@ a{color:var(--accent2)}
       <label class="chk"><input type="checkbox" id="l-etab"> Entreprises</label>
       <label class="chk"><input type="checkbox" id="l-zon"> Zonage PLU</label>
       <label class="chk"><input type="checkbox" id="l-rep" checked> Repérages <span class="leg" style="background:#7b2cbf;margin-left:3px"></span></label>
+      <details id="pub"><summary>Données publiques</summary><div id="pub-list"></div></details>
     </div>
     <div id="zoomhint">Zoomez pour afficher les bâtiments</div>
     <div id="fiche"><button class="x" onclick="closeFiche()">×</button><div id="fiche-c"></div></div>
@@ -209,6 +214,41 @@ $('adr').addEventListener('input',()=>{clearTimeout(ta);const q=$('adr').value.t
   ta=setTimeout(async()=>{try{const j=await (await fetch('https://api-adresse.data.gouv.fr/search/?limit=5&q='+encodeURIComponent(q))).json();
     $('sugg').innerHTML=j.features.map(f=>`<div data-c="${f.geometry.coordinates.join(',')}" data-t="${esc(f.properties.type)}">${esc(f.properties.label)}</div>`).join('');$('sugg').style.display=j.features.length?'block':'none'}catch(e){}},250)});
 $('sugg').onclick=e=>{const d=e.target.closest('div[data-c]');if(!d)return;const c=d.dataset.c.split(',').map(Number);map.flyTo({center:c,zoom:d.dataset.t==='municipality'?13:17});$('sugg').style.display='none';$('adr').value=d.textContent};
+
+// Couches publiques (flux officiels, affichés sans import)
+const GR='https://mapsref.brgm.fr/wxs/georisques/risques', GPF='https://data.geopf.fr/wms-v/ows';
+const PUB=[
+ ['Urbanisme','sup','Servitudes d\'utilité publique','wms',GPF],
+ ['Urbanisme','prescription','Prescriptions du PLU','wms',GPF],
+ ['Urbanisme','info','Informations du PLU','wms',GPF],
+ ['Foncier','BDTOPO-DIFF-ZONE_ACTIVITES','Zones d\'activités (BD TOPO)','wmts','PM_7_18|normal|image/png'],
+ ['Foncier','POTENTIEL.SOLAIRE.FRICHE','Friches recensées','wms',GPF],
+ ['Risques','PPRN_ZONE_INOND','PPR inondation, zonage réglementaire','wms',GR],
+ ['Risques','ALEA_SYNT_01_02MOY','Zones inondables, crue centennale','wms',GR],
+ ['Risques','REMNAPPE','Remontées de nappes','wms',GR],
+ ['Risques','ALEARG_REALISE','Retrait gonflement des argiles','wms',GR],
+ ['Risques','CAVITE_LOCALISEE','Cavités souterraines','wms',GR],
+ ['Risques','PPRT_ZONE_RISQIND','PPR technologiques','wms',GR],
+ ['Industrie et pollution','INSTALLATIONS_CLASSEES_SIMPLIFIE','Installations classées (ICPE)','wms',GR],
+ ['Industrie et pollution','SSP_ETABLISSEMENT','Anciens sites industriels (CASIAS)','wms',GR],
+ ['Industrie et pollution','SSP_INSTRUCTION','Sites pollués (ex BASOL)','wms',GR],
+ ['Industrie et pollution','SSP_CLASSIFICATION_SIS','Secteurs d\'information sur les sols','wms',GR],
+ ['Industrie et pollution','CANALISATIONS','Canalisations de matières dangereuses','wms',GR],
+ ['Environnement','Patrinat_ZNIEFF1','ZNIEFF type 1','wmts','PM_6_16|normal|image/png'],
+ ['Environnement','Patrinat_ZNIEFF2','ZNIEFF type 2','wmts','PM_6_16|normal|image/png'],
+ ['Énergie','POTENTIEL.SOLAIRE.BATIMENT','Potentiel solaire des toitures','wmts','PM_6_18|POTENTIEL.SOLAIRE.BATIMENT|image/png'],
+ ['Histoire','ORTHOIMAGERY.ORTHOPHOTOS.1950-1965','Photos aériennes 1950 à 1965','wmts','PM_0_18|BDORTHOHISTORIQUE|image/png'],
+ ['Histoire','ORTHOIMAGERY.ORTHOPHOTOS.1980-1995','Photos aériennes 1980 à 1995','wmts','PM_3_18|BDORTHOHISTORIQUE|image/png'],
+];
+(function(){let g='',h='';PUB.forEach((c,i)=>{if(c[0]!==g){g=c[0];h+=`<div class="grp">${esc(g)}</div>`}h+=`<label class="chk"><input type="checkbox" data-pub="${i}"> ${esc(c[2])}</label>`});$('pub-list').innerHTML=h})();
+$('pub-list').addEventListener('change',e=>{const i=e.target.dataset.pub;if(i==null)return;const c=PUB[+i],id='pub-'+i,on=e.target.checked;
+  if(on&&!map.getSource(id)){
+    let url;if(c[3]==='wms')url=`${c[4]}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&FORMAT=image/png&TRANSPARENT=true&STYLES=&CRS=EPSG:3857&WIDTH=256&HEIGHT=256&LAYERS=${encodeURIComponent(c[1])}&BBOX={bbox-epsg-3857}`;
+    else{const [tms,st,fmt]=c[4].split('|');url=`https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=${encodeURIComponent(c[1])}&STYLE=${encodeURIComponent(st)}&TILEMATRIXSET=${tms}&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&FORMAT=${fmt}`}
+    map.addSource(id,{type:'raster',tiles:[url],tileSize:256,attribution:c[3]==='wms'&&c[4]===GR?'© Géorisques':'© IGN'});
+    map.addLayer({id,type:'raster',source:id,paint:{'raster-opacity':c[0]==='Histoire'?1:.75}},map.getLayer('bat-f')?'bat-f':undefined);
+    return}
+  vis(id,on)});
 
 // Couches
 $('l-cad').onchange=e=>vis('cad',e.target.checked);

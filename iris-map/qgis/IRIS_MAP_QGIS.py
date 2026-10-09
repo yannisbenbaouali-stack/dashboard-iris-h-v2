@@ -30,6 +30,32 @@ TYPES_REP = ['Terrain nu', 'Bâtiment vacant', 'Panneau à vendre', 'Panneau à 
 STATUTS_REP = ['À qualifier', 'Propriétaire identifié', 'Contacté', 'Mandat', 'Écarté']
 
 
+def PUBLIQUES(GR, GPF):
+    return [
+        ('Urbanisme', 'sup', "Servitudes d'utilité publique", 'wms', GPF),
+        ('Urbanisme', 'prescription', 'Prescriptions du PLU', 'wms', GPF),
+        ('Urbanisme', 'info', 'Informations du PLU', 'wms', GPF),
+        ('Foncier', 'BDTOPO-DIFF-ZONE_ACTIVITES', "Zones d'activités (BD TOPO)", 'wmts', 'PM_7_18|normal|image/png'),
+        ('Foncier', 'POTENTIEL.SOLAIRE.FRICHE', 'Friches recensées', 'wms', GPF),
+        ('Risques', 'PPRN_ZONE_INOND', 'PPR inondation, zonage réglementaire', 'wms', GR),
+        ('Risques', 'ALEA_SYNT_01_02MOY', 'Zones inondables, crue centennale', 'wms', GR),
+        ('Risques', 'REMNAPPE', 'Remontées de nappes', 'wms', GR),
+        ('Risques', 'ALEARG_REALISE', 'Retrait gonflement des argiles', 'wms', GR),
+        ('Risques', 'CAVITE_LOCALISEE', 'Cavités souterraines', 'wms', GR),
+        ('Risques', 'PPRT_ZONE_RISQIND', 'PPR technologiques', 'wms', GR),
+        ('Industrie et pollution', 'INSTALLATIONS_CLASSEES_SIMPLIFIE', 'Installations classées (ICPE)', 'wms', GR),
+        ('Industrie et pollution', 'SSP_ETABLISSEMENT', 'Anciens sites industriels (CASIAS)', 'wms', GR),
+        ('Industrie et pollution', 'SSP_INSTRUCTION', 'Sites pollués (ex BASOL)', 'wms', GR),
+        ('Industrie et pollution', 'SSP_CLASSIFICATION_SIS', "Secteurs d'information sur les sols", 'wms', GR),
+        ('Industrie et pollution', 'CANALISATIONS', 'Canalisations de matières dangereuses', 'wms', GR),
+        ('Environnement', 'Patrinat_ZNIEFF1', 'ZNIEFF type 1', 'wmts', 'PM_6_16|normal|image/png'),
+        ('Environnement', 'Patrinat_ZNIEFF2', 'ZNIEFF type 2', 'wmts', 'PM_6_16|normal|image/png'),
+        ('Énergie', 'POTENTIEL.SOLAIRE.BATIMENT', 'Potentiel solaire des toitures', 'wmts', 'PM_6_18|POTENTIEL.SOLAIRE.BATIMENT|image/png'),
+        ('Histoire', 'ORTHOIMAGERY.ORTHOPHOTOS.1950-1965', 'Photos aériennes 1950 à 1965', 'wmts', 'PM_0_18|BDORTHOHISTORIQUE|image/png'),
+        ('Histoire', 'ORTHOIMAGERY.ORTHOPHOTOS.1980-1995', 'Photos aériennes 1980 à 1995', 'wmts', 'PM_3_18|BDORTHOHISTORIQUE|image/png'),
+    ]
+
+
 def auth_config(user, pwd):
     am = QgsApplication.authManager()
     for cid, cfg in am.availableAuthMethodConfigs().items():
@@ -62,9 +88,9 @@ def connexion(pwd):
     return None, None
 
 
-def ign(couche, fmt, nom, visible=True):
+def ign(couche, fmt, nom, visible=True, tms='PM', style='normal'):
     url = ('https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=' + couche +
-           '&STYLE=normal&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&FORMAT=' + fmt)
+           '&STYLE=' + quote(style) + '&TILEMATRIXSET=' + tms + '&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&FORMAT=' + fmt)
     lyr = QgsRasterLayer('type=xyz&zmin=0&zmax=19&url=' + quote(url, safe=''), nom, 'wms')
     return lyr
 
@@ -231,6 +257,21 @@ def main():
     par.setMapTipTemplate('Parcelle <b>[% "idu" %]</b> · [% format_number("contenance",0) %] m²')
     pj.addMapLayer(par, False)
     donnees.addLayer(par).setItemVisibilityChecked(False)
+
+    # Données publiques : flux officiels affichés sans import, décochés par défaut
+    GR = 'https://mapsref.brgm.fr/wxs/georisques/risques'
+    GPF = 'https://data.geopf.fr/wms-v/ows'
+    publiques = racine.insertGroup(1, 'Données publiques')
+    for groupe, couche, nom, typ, src in PUBLIQUES(GR, GPF):
+        g = publiques.findGroup(groupe) or publiques.addGroup(groupe)
+        if typ == 'wms':
+            r = QgsRasterLayer('crs=EPSG:3857&format=image/png&layers=' + couche + '&styles=&url=' + src, nom, 'wms')
+        else:
+            tms, style, fmt = src.split('|')
+            r = ign(couche, fmt, nom, tms=tms, style=style)
+        pj.addMapLayer(r, False)
+        g.addLayer(r).setItemVisibilityChecked(False)
+    publiques.setExpanded(False)
 
     # Vue initiale sur l'emprise des bâtiments
     tr = QgsCoordinateTransform(bat.crs(), pj.crs(), pj)
