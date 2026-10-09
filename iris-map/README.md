@@ -52,3 +52,19 @@ Table `carto_reperages` : zones et points dessinés dans QGIS (couches Repérage
 ## Propriétaires enrichis
 
 Table `carto_proprietaires`, alimentée par `carto_enrichir_proprietaire(siren)` depuis l'API Recherche d'entreprises : nature juridique, dirigeants et années de naissance, effectif, finances. Vue `v_carto_cibles_p1` : propriétaires privés des bâtiments P1, hors acteurs publics, réseaux et grandes enseignes.
+
+## PLU et PPRI
+
+Pièces du PLU lues via la fonction relais `plu-fetch?url=` (liste blanche d'hôtes publics : Géoportail de l'Urbanisme, Géorisques, préfecture 37), texte extrait par pdftotext. Synthèses et règles dans `plu/37233`.
+
+| Table | Contenu |
+|---|---|
+| carto_plu_regles | Règles par zone et secteur : destinations, emprise, hauteur, implantation, stationnement, lecture investisseur, pages |
+| carto_plu_zones | Zonage GPU découpé au contour communal (`carto_calcul_plu_zones`) |
+| carto_ppri, carto_ppri_zones | Zonage réglementaire PPRI Val de Tours, WFS Géo IDE DDT 37 (`carto_ingest_ppri`, `carto_calcul_ppri_zones`) |
+| carto_ppri_regles | Règles PPRI par zone, plafonds d'emprise activité sous PHEC et totale |
+| carto_communes | Contours communaux, geo.api.gouv.fr |
+
+Carte : couches « PLU, zones et règles » (`carto_geojson_plu`) et « PPRI, zones inondables » (`carto_geojson_ppri`), rubrique « Urbanisme et capacité » de la fiche bâtiment (`carto_urba_batiment`). Plain pied = min(plafond sous PHEC, plafond total / 2), plafond le plus strict entre PLU et PPRI.
+
+Méthode : skill `skills/expertise-urbanisme-plu/SKILL.md`, aussi dans la table skills.

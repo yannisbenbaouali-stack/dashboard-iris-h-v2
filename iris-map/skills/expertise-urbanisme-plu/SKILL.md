@@ -3,7 +3,7 @@ name: expertise-urbanisme-plu
 description: Lire, analyser et interpréter un document d'urbanisme français (PLU, PLUi, PLUi H D, PADD, OAP, PSMV, SPR, carte communale, RNU) et les servitudes qui s'y superposent (PPRI, PPRT, SUP, ABF), pour dire ce qu'on peut construire, étendre, reconvertir ou densifier sur une parcelle ou une zone, et en tirer une lecture investisseur en immobilier d'entreprise (activité, logistique, bureaux). À utiliser dès qu'une question porte sur une zone PLU, une règle d'urbanisme, une étude de capacité, une faisabilité, un changement de destination, ou l'ajout d'une commune dans IRIS MAP.
 version: 1
 agents: [claude]
-categorie: expertise
+categorie: contexte
 ---
 
 # Expertise urbanisme, interprétation des PLU, PLUi, PADD, OAP, PSMV
