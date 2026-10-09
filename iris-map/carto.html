@@ -101,6 +101,7 @@ a{color:var(--accent2)}
       <div style="margin-bottom:4px"><span class="leg" style="background:var(--p1)"></span>P1 <span class="leg" style="background:var(--p2)"></span>P2 <span class="leg" style="background:var(--p3)"></span>P3 <span class="leg" style="background:#9aa0ad"></span>autre</div>
       <label class="chk"><input type="checkbox" id="l-cad" checked> Cadastre</label>
       <label class="chk"><input type="checkbox" id="l-ortho"> Photo aérienne</label>
+      <label class="chk"><input type="checkbox" id="l-fon"> Foncier <span class="leg" style="background:#2e9e44;margin-left:3px"></span><span class="leg" style="background:#f2c230"></span><span class="leg" style="background:#f07c1c"></span></label>
       <label class="chk"><input type="checkbox" id="l-ent" checked> Entreprises des locaux d'activité <span class="leg" style="background:#e3121b;border-radius:50%;margin-left:3px"></span></label>
       <label class="chk"><input type="checkbox" id="l-etab"> Toutes les entreprises</label>
       <label class="chk"><input type="checkbox" id="l-zon"> Zonage PLU</label>
@@ -161,6 +162,11 @@ let hovered=null;
 
 function addData(){
   map.addSource('t',{type:'vector',tiles:[`${SUPA_URL}/rest/v1/rpc/carto_mvt?z={z}&x={x}&y={y}`],minzoom:12,maxzoom:16,promoteId:{bat:'id',etab:'siret'}});
+  map.addLayer({id:'fon-f',type:'fill',source:'t','source-layer':'fon',layout:{visibility:'none'},paint:{'fill-color':['match',['get','cat'],'Terrain nu','#2e9e44','Faible emprise','#f2c230','Activité avant 1980','#f07c1c','#999'],'fill-opacity':.45}});
+  map.addLayer({id:'fon-l',type:'line',source:'t','source-layer':'fon',layout:{visibility:'none'},paint:{'line-color':['match',['get','cat'],'Terrain nu','#1d6e2f','Faible emprise','#b08a12','Activité avant 1980','#b4560c','#666'],'line-width':.8}});
+  map.on('mousemove','fon-f',e=>{if(map.queryRenderedFeatures(e.point,{layers:['bat-f','ent','rep-f','rep-p']}).length)return;const p=e.features[0].properties;
+    pop.setLngLat(e.lngLat).setHTML(`<div class="tip"><b>${esc(p.cat)}</b> · parcelle ${esc(p.idu)}<br>Terrain ${n0(p.surf)} m²${+p.emp?' · bâti '+n0(p.emp)+' m² ('+p.taux+' %)':''}${nz(p.annee)?'<br>Activité construite en '+p.annee:''}${nz(p.zonage)?'<br>Zone '+esc(p.zonage)+(p.za===true||p.za==='true'?' (activité)':''):''}${nz(p.prop)?'<br>Propriétaire : '+esc(p.prop):''}</div>`).addTo(map)});
+  map.on('mouseleave','fon-f',()=>pop.remove());
   map.addLayer({id:'bat-f',type:'fill',source:'t','source-layer':'bat',paint:{
     'fill-color':['match',['get','prio'],1,PCOL[1],2,PCOL[2],3,PCOL[3],PCOL[0]],
     'fill-opacity':['case',['boolean',['feature-state','hover'],false],.95,['>',['get','prio'],0],.72,.22]}});
@@ -264,6 +270,7 @@ $('l-cad').onchange=e=>vis('cad',e.target.checked);
 $('l-ortho').onchange=e=>{vis('ortho',e.target.checked);vis('plan',!e.target.checked)};
 $('l-etab').onchange=e=>vis('etab',e.target.checked);
 $('l-ent').onchange=e=>vis('ent',e.target.checked);
+$('l-fon').onchange=e=>{['fon-f','fon-l'].forEach(l=>vis(l,e.target.checked));if(e.target.checked&&map.getZoom()<13)msg('Foncier visible à partir du zoom 13',2500)};
 $('l-zon').onchange=async e=>{
   if(e.target.checked&&!map.getSource('zon')){msg('Chargement du zonage…');const z=await rpc('carto_geojson_zonage',{p_code:'37233'});msg('');
     map.addSource('zon',{type:'geojson',data:z});
