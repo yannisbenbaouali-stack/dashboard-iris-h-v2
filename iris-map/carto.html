@@ -102,6 +102,7 @@ a{color:var(--accent2)}
     <div id="search"><input id="adr" placeholder="Aller à une adresse ou une commune"><div id="sugg"></div></div>
     <div id="layers">
       <div style="margin-bottom:4px"><span class="leg" style="background:var(--p1)"></span>P1 <span class="leg" style="background:var(--p2)"></span>P2 <span class="leg" style="background:var(--p3)"></span>P3 <span class="leg" style="background:#9aa0ad"></span>autre</div>
+      <label class="chk"><input type="checkbox" id="l-bat" checked> Bâtiments d'activité P1 P2 P3</label>
       <label class="chk"><input type="checkbox" id="l-cad" checked> Cadastre</label>
       <label class="chk"><input type="checkbox" id="l-ortho"> Photo aérienne</label>
       <label class="chk"><input type="checkbox" id="l-fon"> Foncier nu <span class="leg" style="background:#2e9e44;margin-left:3px" title="Terrain nu"></span><span class="leg" style="background:#f2c230" title="Faiblement bâti, emprise inférieure à 40 %"></span></label>
@@ -274,6 +275,7 @@ $('pub-list').addEventListener('change',e=>{const i=e.target.dataset.pub;if(i==n
 
 // Couches
 $('l-cad').onchange=e=>vis('cad',e.target.checked);
+$('l-bat').onchange=e=>['bat-f','bat-l','bat-suivi','bat-hl'].forEach(l=>vis(l,e.target.checked));
 $('l-ortho').onchange=e=>{vis('ortho',e.target.checked);vis('plan',!e.target.checked)};
 $('l-etab').onchange=e=>vis('etab',e.target.checked);
 $('l-ent').onchange=e=>vis('ent',e.target.checked);
