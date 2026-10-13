@@ -89,6 +89,9 @@ a{color:var(--accent2)}
     <div class="hd"><h1><a href="index.html" title="Retour au dashboard">IRIS <span class="b">H</span></a> <span class="sep">|</span> <span class="b">MAP</span></h1><div class="sub">Prospection IRIS REP · <span id="stat"></span></div></div>
     <div class="modes"><button id="m-bat" class="on">Bâtiments</button><button id="m-par">Parcelles</button></div>
     <div class="ctl cache" id="ctl-par">
+      <div class="full"><div class="lbl">Mes critères</div><textarea id="pcrit" rows="2" placeholder="Ex : terrain nu de plus de 1 ha en zone d'activité, constructible, propriétaire société, hors public"></textarea>
+        <div style="display:flex;gap:6px;margin-top:4px"><button id="pcrit-ok" class="pri" style="width:auto">Appliquer</button><button id="pcrit-raz" style="width:auto">Effacer</button></div>
+        <div id="pcrit-compris" style="font-size:11px;color:var(--dim);margin-top:4px"></div><div id="pcrit-claude" style="font-size:11px;margin-top:2px"></div></div>
       <div class="full"><div class="lbl">Catégorie</div><select id="pcat"><option value="nu">Foncier nu, tout</option><option value="terrain_nu">Foncier nu, terrain nu</option><option value="faible">Foncier nu, faiblement bâti</option><option value="vetuste">Foncier vétuste</option><option value="tout">Toutes les parcelles</option></select></div>
       <div><div class="lbl">Surface min m²</div><input id="psmin" type="number" value="1000" step="100"></div>
       <div><div class="lbl">Surface max m²</div><input id="psmax" type="number" step="100"></div>
@@ -113,6 +116,9 @@ a{color:var(--accent2)}
       <div style="margin-bottom:4px"><span class="leg" style="background:var(--p1)"></span>P1 <span class="leg" style="background:var(--p2)"></span>P2 <span class="leg" style="background:var(--p3)"></span>P3 <span class="leg" style="background:#9aa0ad"></span>autre</div>
       <label class="chk"><input type="checkbox" id="l-bat"> Activer les emprises <span class="leg" style="background:var(--p1);margin-left:3px"></span><span class="leg" style="background:var(--p2)"></span><span class="leg" style="background:var(--p3)"></span></label>
       <label class="chk"><input type="checkbox" id="l-com" checked> Limite communale</label>
+      <label class="chk"><input type="checkbox" id="l-ocs"> Occupation du sol OCS GE</label>
+      <div id="leg-ocs" class="legbox" style="display:none"></div>
+      <label class="chk"><input type="checkbox" id="l-fri"> Friches Cartofriches <span class="leg" style="background:#8b5a2b;margin-left:3px"></span></label>
       <label class="chk"><input type="checkbox" id="l-bod"> Propriétaire ou occupant en difficulté <span class="leg" style="background:#fff;border:2px solid #000;margin-left:3px"></span></label>
       <label class="chk"><input type="checkbox" id="l-cad" checked> Cadastre</label>
       <label class="chk"><input type="checkbox" id="l-ortho"> Photo aérienne</label>
@@ -303,14 +309,53 @@ $('l-fon').onchange=majFon;$('l-vet').onchange=majFon;
 let mode='bat', prow=[];
 function setMode(m){mode=m;$('m-bat').classList.toggle('on',m==='bat');$('m-par').classList.toggle('on',m==='par');$('ctl-bat').classList.toggle('cache',m!=='bat');$('ctl-par').classList.toggle('cache',m!=='par');
   if(map.getLayer('par-l'))['par-f','par-l'].forEach(l=>vis(l,m==='par'));
-  if(m==='par'){const c=$('pcat').value;if(c!=='tout'){if(c==='vetuste')$('l-vet').checked=true;else $('l-fon').checked=true}majFon();chercherParcelles()}else{majFon();chercher()}}
+  if(m==='par'){majReponseClaude();const c=$('pcat').value;if(c!=='tout'){if(c==='vetuste')$('l-vet').checked=true;else $('l-fon').checked=true}majFon();chercherParcelles()}else{majFon();chercher()}}
 $('m-bat').onclick=()=>setMode('bat');$('m-par').onclick=()=>setMode('par');
+// Critères en langage libre
+const nbr=t=>parseFloat(String(t).replace(/\s/g,'').replace(',','.'));
+const unite=(v,u)=>/ha|hect/.test(u||'')?v*10000:v;
+function lireCriteres(t){
+  const c={},vu=[];const tl=(t||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');const NB='(\\d[\\d\\s]*(?:[.,]\\d+)?)\\s*(ha|hectares?|m2|m²|metres? carres?)?';
+  let m=tl.match(new RegExp('entre\\s*'+NB+'\\s*et\\s*'+NB));
+  if(m){c.smin=unite(nbr(m[1]),m[2]||m[4]);c.smax=unite(nbr(m[3]),m[4]);vu.push(`surface ${n0(c.smin)} à ${n0(c.smax)} m²`)}
+  else{m=tl.match(new RegExp('(plus de|au moins|minimum|mini|superieure? a|>=?|des|a partir de)\\s*'+NB));if(m){c.smin=unite(nbr(m[2]),m[3]);vu.push(`surface ≥ ${n0(c.smin)} m²`)}
+    m=tl.match(new RegExp('(moins de|au plus|maximum|maxi|inferieure? a|<=?|jusqu.a)\\s*'+NB));if(m){c.smax=unite(nbr(m[2]),m[3]);vu.push(`surface ≤ ${n0(c.smax)} m²`)}}
+  if(/vetuste|avant 1980|ancien/.test(tl)){c.cat='vetuste';vu.push('Foncier vétuste')}
+  else if(/faiblement|faible emprise|peu bati/.test(tl)){c.cat='faible';vu.push('faiblement bâti')}
+  else if(/foncier nu/.test(tl)){c.cat='nu';vu.push('Foncier nu')}
+  else if(/terrain nu|\bnus?\b|vierge|non bati/.test(tl)){c.cat='terrain_nu';vu.push('terrain nu')}
+  else if(/toutes? les parcelles|tout type/.test(tl)){c.cat='tout';vu.push('toutes parcelles')}
+  const zs=[...new Set((t.match(/\b(1AU[a-e]?|UX[abc]?|UA[abc]?|UB|UC[abm]?|US|Nx)\b/g)||[]))];
+  if(/zones? d.activite|zone economique|\bza\b|\bzi\b/.test(tl))zs.push('UX','UAc');
+  if(zs.length){c.zones=[...new Set(zs)];vu.push('zones '+c.zones.join(', '))}
+  if(/constructible|neuf possible|on peut construire/.test(tl)){c.constructible=true;vu.push('constructible pour activité neuve au PPRI')}
+  if(/hors zde|sans zde|pas en zde/.test(tl)){c.ppri_exclus=['ZDE'];vu.push('hors ZDE')}
+  if(/friche/.test(tl)){c.friche=true;vu.push('friche Cartofriches')}
+  if(/sans usage|abandonn|delaiss|en transition/.test(tl)){c.sans_usage=true;vu.push('sol sans usage ou abandonné')}
+  if(/vegetal|herbe|enherbe|espace vert|prairie|champ/.test(tl)){c.veg_min=50;vu.push('végétalisé à plus de 50 %')}
+  if(/goudron|bitum|imperme|parking|enrobe|stockage exterieur/.test(tl)){c.imper_min=50;vu.push('imperméabilisé à plus de 50 %')}
+  if(/societe|personne morale|entreprise proprietaire|\bpm\b/.test(tl)){c.proprio_pm=true;vu.push('propriétaire société')}
+  if(/hors public|pas public|non public|prive|sans collectivite/.test(tl)){c.sans_public=true;vu.push('hors propriétaires publics')}
+  m=tl.match(/avant (1[89]\d\d|20\d\d)/);if(m&&!/avant 1980/.test(tl)){c.annee_max=+m[1];vu.push('bâti avant '+m[1])}
+  if(/plus petites? d.abord|croissant/.test(tl)){c.ordre='asc';vu.push('tri croissant')}
+  return{c,vu}}
+let critTexte='';
+$('pcrit-ok').onclick=async()=>{critTexte=$('pcrit').value.trim();const L=lireCriteres(critTexte);
+  if(L.c.cat)$('pcat').value=L.c.cat;if(L.c.smin!=null)$('psmin').value=L.c.smin;if(L.c.smax!=null)$('psmax').value=L.c.smax;if(L.c.ordre)$('pordre').value=L.c.ordre;
+  $('pcrit-compris').innerHTML=critTexte?(L.vu.length?'Compris : '+esc(L.vu.join(' · ')):'Rien de reconnu automatiquement')+((L.c.proprio_pm||L.c.sans_public)&&/nu|faible/.test($('pcat').value)?'<br><b>Attention :</b> propriétaire inconnu pour les terrains sans bâti tant que le fichier DGFiP des personnes morales n\'est pas importé, ce filtre les exclut.':'')+'<br>Critère enregistré, Claude affinera la base à partir de ce texte.':'';
+  majFon();chercherParcelles();
+  if(critTexte)fetch(`${SUPA_URL}/rest/v1/carto_criteres`,{method:'POST',headers:{...hdr(),'Prefer':'return=minimal'},body:JSON.stringify({texte:critTexte,mode:'parcelles',compris:L.c})}).catch(()=>{});
+};
+$('pcrit-raz').onclick=()=>{$('pcrit').value='';critTexte='';$('pcrit-compris').innerHTML='';chercherParcelles()};
+function critForm(){const L=lireCriteres(critTexte);return Object.assign({},L.c,{cat:$('pcat').value,smin:+$('psmin').value||0,smax:+$('psmax').value||null,ordre:$('pordre').value,limit:500})}
+async function majReponseClaude(){try{const r=await fetch(`${SUPA_URL}/rest/v1/carto_criteres?select=texte,reponse&reponse=not.is.null&order=traite_at.desc&limit=1`,{headers:hdr()}).then(r=>r.json());
+  if(r&&r[0])$('pcrit-claude').innerHTML='<b>Claude :</b> '+esc(r[0].reponse)}catch(e){}}
 async function chercherParcelles(){
   $('nb').textContent='Recherche…';let r;
-  try{r=await rpc('carto_recherche_parcelles',{p_code:'37233',p_cat:$('pcat').value,p_smin:+$('psmin').value||0,p_smax:+$('psmax').value||null,p_ordre:$('pordre').value,p_limit:500})}catch(e){$('nb').textContent='Erreur';return}
+  try{r=await rpc('carto_recherche_parcelles2',{p_code:'37233',c:critForm()})}catch(e){$('nb').textContent='Erreur';return}
   prow=r.rows||[];
-  $('nb').textContent=`${n0(r.total)} parcelle${r.total>1?'s':''}${r.total>prow.length?' ('+prow.length+' listées)':''}`;
-  $('res').innerHTML=prow.map((p,i)=>`<div class="row" data-p="${i}"><div><span class="leg" style="display:inline-block;width:14px;height:14px;border-radius:3px;background:${p.cat==='Terrain nu'?'#2e9e44':p.cat==='Faiblement bâti'?'#f2c230':p.cat==='Foncier vétuste'?'#f07c1c':'#9aa0ad'}"></span></div><div><div class="t">${esc(p.idu)}${p.zonage?' · '+esc(p.zonage):''}</div><div class="m">${esc(p.cat||'')}${p.taux!=null&&p.cat?' · emprise '+p.taux+' %':''}${p.annee?' · '+p.annee:''}${p.prop?'<br>'+esc(p.prop):''}</div></div><div class="s">${n0(p.surf)} m²</div></div>`).join('');
+  $('nb').textContent=`${n0(r.total)} parcelle${r.total>1?'s':''} · ${n0(Math.round((r.surface_totale||0)/10000))} ha${r.total>prow.length?' ('+prow.length+' listées)':''}`;
+  $('res').innerHTML=prow.map((p,i)=>`<div class="row" data-p="${i}"><div><span class="leg" style="display:inline-block;width:14px;height:14px;border-radius:3px;background:${p.cat==='Terrain nu'?'#2e9e44':p.cat==='Faiblement bâti'?'#f2c230':p.cat==='Foncier vétuste'?'#f07c1c':'#9aa0ad'}"></span></div><div><div class="t">${esc(p.idu)}${p.zonage?' · '+esc(p.zonage):''}${p.ppri?' · PPRI '+esc(p.ppri):''}</div><div class="m">${esc(p.cat||'')}${p.taux!=null&&p.cat?' · emprise '+p.taux+' %':''}${p.annee?' · '+p.annee:''}${p.veg!=null?' · végétal '+p.veg+' %':''}${p.friche?' · friche':''}${p.prop?'<br>'+esc(p.prop):''}</div></div><div class="s">${n0(p.surf)} m²</div></div>`).join('');
   const g=r.geo||{type:'FeatureCollection',features:[]};
   if(map.getSource('par'))map.getSource('par').setData(g);else{map.addSource('par',{type:'geojson',data:g});
     map.addLayer({id:'par-f',type:'fill',source:'par',paint:{'fill-color':'#00a3ff','fill-opacity':.12}});
@@ -319,6 +364,27 @@ async function chercherParcelles(){
 function goP(){clearTimeout(tq);tq=setTimeout(()=>{majFon();chercherParcelles()},300)}
 ['pcat','psmin','psmax','pordre'].forEach(id=>{$(id).addEventListener('input',goP);$(id).addEventListener('change',goP)});
 $('l-com').onchange=e=>vis('com-l',e.target.checked);
+const OCS=[['CS1.1.1.1','#d6372e','Bâti'],['CS1.1.1.2','#8c8c8c','Imperméable non bâti'],['CS1.1.2','#c9b28a','Minéral perméable'],['CS1.2.1','#e8d9b0','Sol nu'],['CS1.2.2','#5aa9e6','Eau'],['CS2.1','#2f7d32','Arboré, arbustif'],['CS2.2','#a6d96a','Herbacé']];
+$('l-ocs').onchange=e=>{const on=e.target.checked;$('leg-ocs').style.display=on?'':'none';
+  if(on&&!map.getSource('ocs')){map.addSource('ocs',{type:'vector',tiles:['https://data.geopf.fr/tms/1.0.0/OCSGE-TMS.COUVERTURE.2021-2023/{z}/{x}/{y}.pbf'],minzoom:12,maxzoom:16,attribution:'OCS GE © IGN'});
+    const col=['case'];OCS.forEach(([k,c])=>col.push(['==',['slice',['coalesce',['get','code_cs'],''],0,k.length],k],c));col.push('#cccccc');
+    const avant=map.getLayer('fon-f')?'fon-f':'bat-f';
+    map.addLayer({id:'ocs-f',type:'fill',source:'ocs','source-layer':'occupation_sol',paint:{'fill-color':col,'fill-opacity':.5}},avant);
+    map.addLayer({id:'ocs-us6',type:'line',source:'ocs','source-layer':'occupation_sol',filter:['==',['slice',['coalesce',['get','code_us'],''],0,3],'US6'],paint:{'line-color':'#7b2cbf','line-width':2,'line-dasharray':[2,1]}},avant);
+    $('leg-ocs').innerHTML=OCS.map(([k,c,n])=>`<span class="leg" style="background:${c}"></span>${n}`).join('<br>')+'<br><span class="leg" style="border:2px dashed #7b2cbf"></span>Sans usage, abandonné, en transition<br>Millésime 2021';
+    map.on('mousemove','ocs-f',e2=>{if(surObjet(e2.point))return;const p=e2.features[0].properties;const o=OCS.find(([k])=>(p.code_cs||'').startsWith(k));
+      pop.setLngLat(e2.lngLat).setHTML(`<div class="tip"><b>${o?o[2]:esc(p.code_cs)}</b><br>Usage ${esc(p.code_us||'')}</div>`).addTo(map)});
+    map.on('mouseleave','ocs-f',()=>pop.remove());
+    if(map.getZoom()<12)msg('OCS GE visible à partir du zoom 12',2500);return}
+  ['ocs-f','ocs-us6'].forEach(l=>vis(l,on))};
+$('l-fri').onchange=async e=>{const on=e.target.checked;
+  if(on&&!map.getSource('fri')){let z;try{z=await rpc('carto_geojson_friches',{p_code:'37233'})}catch(x){e.target.checked=false;return}
+    map.addSource('fri',{type:'geojson',data:z});
+    map.addLayer({id:'fri-f',type:'fill',source:'fri',paint:{'fill-color':'#8b5a2b','fill-opacity':.25}});
+    map.addLayer({id:'fri-l',type:'line',source:'fri',paint:{'line-color':'#8b5a2b','line-width':2.5}});
+    map.on('mousemove','fri-f',e2=>{const p=e2.features[0].properties;pop.setLngLat(e2.lngLat).setHTML(`<div class="tip"><b>Friche : ${esc(p.nom)}</b><br>${esc(p.statut)} · ${n0(p.surface)} m²<br>${esc(p.source||'')}<br>Propriétaire ${esc(p.proprio||'')}</div>`).addTo(map)});
+    map.on('mouseleave','fri-f',()=>pop.remove());return}
+  ['fri-f','fri-l'].forEach(l=>vis(l,on))};
 $('l-bod').onchange=async e=>{
   const on=e.target.checked;
   if(on&&!map.getSource('bod')){msg('Chargement BODACC…');let z;try{z=await rpc('carto_geojson_bodacc',{p_code:'37233'})}catch(x){e.target.checked=false;return}msg('');
