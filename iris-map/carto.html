@@ -191,8 +191,16 @@ function addData(){
   map.addSource('t',{type:'vector',tiles:[`${SUPA_URL}/rest/v1/rpc/carto_mvt?z={z}&x={x}&y={y}`],minzoom:12,maxzoom:16,promoteId:{bat:'id',etab:'siret'}});
   map.addLayer({id:'fon-f',type:'fill',source:'t','source-layer':'fon',layout:{visibility:'none'},paint:{'fill-color':['match',['get','cat'],'Terrain nu','#2e9e44','Faiblement bâti','#f2c230','Foncier vétuste','#f07c1c','#999'],'fill-opacity':.45}});
   map.addLayer({id:'fon-l',type:'line',source:'t','source-layer':'fon',layout:{visibility:'none'},paint:{'line-color':['match',['get','cat'],'Terrain nu','#1d6e2f','Faiblement bâti','#b08a12','Foncier vétuste','#b4560c','#666'],'line-width':.8}});
-  map.on('mousemove','fon-f',e=>{if(map.queryRenderedFeatures(e.point,{layers:['bat-f','ent','rep-f','rep-p']}).length)return;const p=e.features[0].properties;
-    pop.setLngLat(e.lngLat).setHTML(`<div class="tip"><b>${p.cat==='Foncier vétuste'?'Foncier vétuste':'Foncier nu · '+esc(p.cat)}</b> · parcelle ${esc(p.idu)}<br>Terrain ${n0(p.surf)} m²${+p.emp?' · bâti '+n0(p.emp)+' m² ('+p.taux+' %)':''}${nz(p.annee)?'<br>Activité construite en '+p.annee:''}${nz(p.zonage)?'<br>Zone '+esc(p.zonage)+(p.za===true||p.za==='true'?' (activité)':''):''}${nz(p.prop)?'<br>Propriétaire : '+esc(p.prop):''}</div>`).addTo(map)});
+  map.addLayer({id:'parc-f',type:'fill',source:'t','source-layer':'parc',minzoom:15,paint:{'fill-color':'#000','fill-opacity':0}},'fon-f');
+  map.addLayer({id:'parc-hl',type:'line',source:'t','source-layer':'parc',minzoom:15,filter:['==',['get','idu'],''],paint:{'line-color':'#111','line-width':2}},'fon-f');
+  const tipParc=(p,cat)=>{const emp=+p.emp||0,surf=+p.surf||0,coef=p.coef!=null&&p.coef!==''?+p.coef:(surf?Math.round(emp/surf*100):0);
+    return `<div class="tip">${cat?'<b>'+esc(cat)+'</b><br>':''}<b>${nz(p.prop)?esc(p.prop):'Propriétaire particulier, nom non public'}</b>${nz(p.pt)&&nz(p.prop)?' <i>('+esc(p.pt)+')</i>':''}<br>Foncier ${n0(surf)} m² · emprise ${n0(emp)} m² (${coef} %)<br><span style="color:#666">Parcelle ${esc(p.idu)}${nz(p.zon||p.zonage)?' · zone '+esc(p.zon||p.zonage):''}${nz(p.ppri)?' · PPRI '+esc(p.ppri):''}${nz(p.annee)?' · activité de '+p.annee:''}</span></div>`};
+  map.on('mousemove','fon-f',e=>{if(map.queryRenderedFeatures(e.point,{layers:['bat-f','ent','rep-f','rep-p'].filter(l=>map.getLayoutProperty(l,'visibility')!=='none')}).length)return;const p=e.features[0].properties;
+    const cat=p.cat==='Foncier vétuste'?'Foncier vétuste':'Foncier nu · '+p.cat;pop.setLngLat(e.lngLat).setHTML(tipParc({...p,coef:p.taux},cat)).addTo(map)});
+  map.on('mousemove','parc-f',e=>{const p=e.features[0].properties;map.setFilter('parc-hl',['==',['get','idu'],p.idu]);
+    if(map.queryRenderedFeatures(e.point,{layers:['bat-f','ent','rep-f','rep-p','fon-f','bod-f','fri-f'].filter(l=>map.getLayer(l)&&map.getLayoutProperty(l,'visibility')!=='none')}).length)return;
+    pop.setLngLat(e.lngLat).setHTML(tipParc(p)).addTo(map)});
+  map.on('mouseleave','parc-f',()=>{map.setFilter('parc-hl',['==',['get','idu'],'']);pop.remove()});
   map.on('mouseleave','fon-f',()=>pop.remove());
   map.addLayer({id:'bat-f',type:'fill',source:'t','source-layer':'bat',layout:{visibility:'none'},paint:{
     'fill-color':['match',['get','prio'],1,PCOL[1],2,PCOL[2],3,PCOL[3],PCOL[0]],
