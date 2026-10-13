@@ -335,14 +335,16 @@ function lireCriteres(t){
   if(/vegetal|herbe|enherbe|espace vert|prairie|champ/.test(tl)){c.veg_min=50;vu.push('végétalisé à plus de 50 %')}
   if(/goudron|bitum|imperme|parking|enrobe|stockage exterieur/.test(tl)){c.imper_min=50;vu.push('imperméabilisé à plus de 50 %')}
   if(/societe|personne morale|entreprise proprietaire|\bpm\b/.test(tl)){c.proprio_pm=true;vu.push('propriétaire société')}
-  if(/hors public|pas public|non public|prive|sans collectivite/.test(tl)){c.sans_public=true;vu.push('hors propriétaires publics')}
+  if(/(pas|non|hors|sauf|exclu\w*|sans)\b.{0,30}(public|publique|collectivit|commune|etat|organisme|hlm|sncf)|\bprive/.test(tl)){c.sans_public=true;vu.push('hors propriétaires publics')}
+  else if(/(appartenant|propriete|proprietaire).{0,25}(public|collectivit|commune|etat|organisme public)/.test(tl)){c.public=true;vu.push('propriétaire public')}
+  if(/particulier|personne physique/.test(tl)){c.proprio_physique=true;vu.push('propriétaire particulier')}
   m=tl.match(/avant (1[89]\d\d|20\d\d)/);if(m&&!/avant 1980/.test(tl)){c.annee_max=+m[1];vu.push('bâti avant '+m[1])}
   if(/plus petites? d.abord|croissant/.test(tl)){c.ordre='asc';vu.push('tri croissant')}
   return{c,vu}}
 let critTexte='';
 $('pcrit-ok').onclick=async()=>{critTexte=$('pcrit').value.trim();const L=lireCriteres(critTexte);
   if(L.c.cat)$('pcat').value=L.c.cat;if(L.c.smin!=null)$('psmin').value=L.c.smin;if(L.c.smax!=null)$('psmax').value=L.c.smax;if(L.c.ordre)$('pordre').value=L.c.ordre;
-  $('pcrit-compris').innerHTML=critTexte?(L.vu.length?'Compris : '+esc(L.vu.join(' · ')):'Rien de reconnu automatiquement')+((L.c.proprio_pm||L.c.sans_public)&&/nu|faible/.test($('pcat').value)?'<br><b>Attention :</b> propriétaire inconnu pour les terrains sans bâti tant que le fichier DGFiP des personnes morales n\'est pas importé, ce filtre les exclut.':'')+'<br>Critère enregistré, Claude affinera la base à partir de ce texte.':'';
+  $('pcrit-compris').innerHTML=critTexte?(L.vu.length?'Compris : '+esc(L.vu.join(' · ')):'Rien de reconnu automatiquement')+'<br>Critère enregistré, Claude affinera la base à partir de ce texte.':'';
   majFon();chercherParcelles();
   if(critTexte)fetch(`${SUPA_URL}/rest/v1/carto_criteres`,{method:'POST',headers:{...hdr(),'Prefer':'return=minimal'},body:JSON.stringify({texte:critTexte,mode:'parcelles',compris:L.c})}).catch(()=>{});
 };
@@ -355,7 +357,7 @@ async function chercherParcelles(){
   try{r=await rpc('carto_recherche_parcelles2',{p_code:'37233',c:critForm()})}catch(e){$('nb').textContent='Erreur';return}
   prow=r.rows||[];
   $('nb').textContent=`${n0(r.total)} parcelle${r.total>1?'s':''} · ${n0(Math.round((r.surface_totale||0)/10000))} ha${r.total>prow.length?' ('+prow.length+' listées)':''}`;
-  $('res').innerHTML=prow.map((p,i)=>`<div class="row" data-p="${i}"><div><span class="leg" style="display:inline-block;width:14px;height:14px;border-radius:3px;background:${p.cat==='Terrain nu'?'#2e9e44':p.cat==='Faiblement bâti'?'#f2c230':p.cat==='Foncier vétuste'?'#f07c1c':'#9aa0ad'}"></span></div><div><div class="t">${esc(p.idu)}${p.zonage?' · '+esc(p.zonage):''}${p.ppri?' · PPRI '+esc(p.ppri):''}</div><div class="m">${esc(p.cat||'')}${p.taux!=null&&p.cat?' · emprise '+p.taux+' %':''}${p.annee?' · '+p.annee:''}${p.veg!=null?' · végétal '+p.veg+' %':''}${p.friche?' · friche':''}${p.prop?'<br>'+esc(p.prop):''}</div></div><div class="s">${n0(p.surf)} m²</div></div>`).join('');
+  $('res').innerHTML=prow.map((p,i)=>`<div class="row" data-p="${i}"><div><span class="leg" style="display:inline-block;width:14px;height:14px;border-radius:3px;background:${p.cat==='Terrain nu'?'#2e9e44':p.cat==='Faiblement bâti'?'#f2c230':p.cat==='Foncier vétuste'?'#f07c1c':'#9aa0ad'}"></span></div><div><div class="t">${esc(p.idu)}${p.zonage?' · '+esc(p.zonage):''}${p.ppri?' · PPRI '+esc(p.ppri):''}</div><div class="m">${esc(p.cat||'')}${p.taux!=null&&p.cat?' · emprise '+p.taux+' %':''}${p.annee?' · '+p.annee:''}${p.veg!=null?' · végétal '+p.veg+' %':''}${p.friche?' · friche':''}${p.prop_type?'<br><b>'+esc(p.prop_type)+'</b>':''}${p.prop?' · '+esc(p.prop):''}</div></div><div class="s">${n0(p.surf)} m²</div></div>`).join('');
   const g=r.geo||{type:'FeatureCollection',features:[]};
   if(map.getSource('par'))map.getSource('par').setData(g);else{map.addSource('par',{type:'geojson',data:g});
     map.addLayer({id:'par-f',type:'fill',source:'par',paint:{'fill-color':'#00a3ff','fill-opacity':.12}});
