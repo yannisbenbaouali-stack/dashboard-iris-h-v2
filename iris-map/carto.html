@@ -117,6 +117,7 @@ a{color:var(--accent2)}
       <label class="chk"><input type="checkbox" id="l-bat"> Activer les emprises <span class="leg" style="background:var(--p1);margin-left:3px"></span><span class="leg" style="background:var(--p2)"></span><span class="leg" style="background:var(--p3)"></span></label>
       <label class="chk"><input type="checkbox" id="l-com" checked> Limite communale</label>
       <label class="chk"><input type="checkbox" id="l-an" checked> Zones A et N hachurées <span class="leg" style="background:repeating-linear-gradient(45deg,#777 0 2px,transparent 2px 5px);margin-left:3px;border:1px solid #777"></span></label>
+      <label class="chk"><input type="checkbox" id="l-pub"> Afficher les propriétaires publics</label>
       <label class="chk" id="lab-exc"><input type="checkbox" id="l-exc"> Afficher les propriétaires exclus <span id="exc-liste" style="color:var(--dim)"></span></label>
       <label class="chk"><input type="checkbox" id="l-ocs"> Occupation du sol OCS GE</label>
       <div id="leg-ocs" class="legbox" style="display:none"></div>
@@ -319,18 +320,20 @@ function majFon(){const nu=$('l-fon').checked,ve=$('l-vet').checked;
 $('l-fon').onchange=majFon;$('l-vet').onchange=majFon;
 // Exclusions générales de propriétaires (table carto_exclusions)
 let EXC=[];
-const excExpr=champ=>EXC.length&&!$('l-exc').checked?['!',['any',...EXC.map(m=>['in',m,['upcase',['to-string',['coalesce',['get',champ],'']]]])]]:null;
-const estExclu=t=>!$('l-exc').checked&&EXC.some(m=>String(t||'').toUpperCase().includes(m));
+const RX_PUB=/(^|[^a-z])(commune|ville de|metropole|métropole|departement|département|region|région|etat|état|ministere|ministère|sncf|reseau ferre|réseau ferré|office public|hlm|tours habitat|val touraine habitat|syndicat|agence|chambre de commerce|cci|universite|université|hopital|hôpital|centre hospitalier|epf|etablissement public|établissement public)([^a-z]|$)/i;
+const excExpr=champ=>{const c=[];if(EXC.length&&!$('l-exc').checked)c.push(['!',['any',...EXC.map(m=>['in',m,['upcase',['to-string',['coalesce',['get',champ],'']]]])]]);
+  if(!$('l-pub').checked)c.push(['!=',['to-number',['coalesce',['get','pub'],0]],1]);return c.length?(c.length>1?['all',...c]:c[0]):null};
+const estExclu=t=>(!$('l-exc').checked&&EXC.some(m=>String(t||'').toUpperCase().includes(m)))||(!$('l-pub').checked&&RX_PUB.test(String(t||'')));
 function majExclusions(){
   const eb=excExpr('prop');['bat-f','bat-l'].forEach(l=>map.getLayer(l)&&map.setFilter(l,eb));
   const ee=excExpr('nom');map.getLayer('ent')&&map.setFilter('ent',ee);
   majFon();$('exc-liste').textContent=EXC.length?'('+EXC.join(', ')+')':'';
   if(mode==='par')chercherParcelles();else chercher()}
-async function chargerExclusions(){try{const r=await fetch(`${SUPA_URL}/rest/v1/carto_exclusions?select=motif&actif=eq.true`,{headers:hdr()}).then(r=>r.json());EXC=(r||[]).map(x=>String(x.motif).toUpperCase());majExclusions()}catch(e){}}
+async function chargerExclusions(){try{const r=await fetch(`${SUPA_URL}/rest/v1/carto_exclusions?select=motif&actif=eq.true`,{headers:hdr()}).then(r=>r.json());EXC=(r||[]).map(x=>String(x.motif).toUpperCase())}catch(e){}majExclusions()}
 async function ajouterExclusion(m){m=m.trim().toUpperCase();if(!m||EXC.includes(m))return;
   await fetch(`${SUPA_URL}/rest/v1/carto_exclusions`,{method:'POST',headers:{...hdr(),'Prefer':'return=minimal'},body:JSON.stringify({motif:m,raison:'Ajouté depuis le champ critères'})}).catch(()=>{});
   EXC.push(m);majExclusions()}
-$('l-exc').onchange=majExclusions;
+$('l-exc').onchange=majExclusions;$('l-pub').onchange=majExclusions;
 // Mode parcelles
 let mode='bat', prow=[];
 function setMode(m){mode=m;$('m-bat').classList.toggle('on',m==='bat');$('m-par').classList.toggle('on',m==='par');$('ctl-bat').classList.toggle('cache',m!=='bat');$('ctl-par').classList.toggle('cache',m!=='par');
@@ -379,7 +382,7 @@ $('pcrit-ok').onclick=async()=>{critTexte=$('pcrit').value.trim();const L=lireCr
   if(critTexte)fetch(`${SUPA_URL}/rest/v1/carto_criteres`,{method:'POST',headers:{...hdr(),'Prefer':'return=minimal'},body:JSON.stringify({texte:critTexte,mode:'parcelles',compris:L.c})}).catch(()=>{});
 };
 $('pcrit-raz').onclick=()=>{$('pcrit').value='';critTexte='';$('pcrit-compris').innerHTML='';chercherParcelles()};
-function critForm(){const L=lireCriteres(critTexte);delete L.c.masquer;return Object.assign({inclure_exclus:$('l-exc').checked},L.c,{cat:$('pcat').value,smin:+$('psmin').value||0,smax:+$('psmax').value||null,ordre:$('pordre').value,limit:500})}
+function critForm(){const L=lireCriteres(critTexte);delete L.c.masquer;return Object.assign({inclure_exclus:$('l-exc').checked,sans_public:!$('l-pub').checked&&!L.c.public},L.c,{cat:$('pcat').value,smin:+$('psmin').value||0,smax:+$('psmax').value||null,ordre:$('pordre').value,limit:500})}
 async function majReponseClaude(){try{const r=await fetch(`${SUPA_URL}/rest/v1/carto_criteres?select=texte,reponse&reponse=not.is.null&order=traite_at.desc&limit=1`,{headers:hdr()}).then(r=>r.json());
   if(r&&r[0])$('pcrit-claude').innerHTML='<b>Claude :</b> '+esc(r[0].reponse)}catch(e){}}
 async function chercherParcelles(){
