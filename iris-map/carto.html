@@ -121,6 +121,8 @@ a{color:var(--accent2)}
       <label class="chk" id="lab-exc"><input type="checkbox" id="l-exc"> Afficher les propriétaires exclus <span id="exc-liste" style="color:var(--dim)"></span></label>
       <label class="chk"><input type="checkbox" id="l-ocs"> Occupation du sol OCS GE</label>
       <div id="leg-ocs" class="legbox" style="display:none"></div>
+      <label class="chk"><input type="checkbox" id="l-per"> Permis Sitadel <span class="leg" style="background:#1f6fd1;border-radius:50%;margin-left:3px" title="locaux"></span><span class="leg" style="background:#d1361f;border-radius:50%" title="démolir"></span><span class="leg" style="background:#8e44ad;border-radius:50%" title="aménager"></span></label>
+      <label class="chk"><input type="checkbox" id="l-fdc"> Ventes de fonds de commerce <span class="leg" style="background:#e0a800;transform:rotate(45deg);margin-left:3px"></span></label>
       <label class="chk"><input type="checkbox" id="l-fri"> Friches Cartofriches <span class="leg" style="background:#8b5a2b;margin-left:3px"></span></label>
       <label class="chk"><input type="checkbox" id="l-bod"> Propriétaire ou occupant en difficulté <span class="leg" style="background:#fff;border:2px solid #000;margin-left:3px"></span></label>
       <label class="chk"><input type="checkbox" id="l-cad" checked> Cadastre</label>
@@ -420,6 +422,25 @@ $('l-ocs').onchange=e=>{const on=e.target.checked;$('leg-ocs').style.display=on?
     map.on('mouseleave','ocs-f',()=>pop.remove());
     if(map.getZoom()<12)msg('OCS GE visible à partir du zoom 12',2500);return}
   ['ocs-f','ocs-us6'].forEach(l=>vis(l,on))};
+const PNAT={locaux:['#1f6fd1','Permis de locaux'],demolir:['#d1361f','Permis de démolir'],amenager:['#8e44ad','Permis d\'aménager']};
+const surf=(l,v)=>+v?`<br>${l} ${n0(v)} m²`:'';
+$('l-per').onchange=async e=>{const on=e.target.checked;
+  if(on&&!map.getSource('per')){let z;try{z=await rpc('carto_geojson_permis',{p_code:'37233'})}catch(x){e.target.checked=false;return}
+    map.addSource('per',{type:'geojson',data:z});
+    map.addLayer({id:'per-c',type:'circle',source:'per',paint:{'circle-radius':['interpolate',['linear'],['zoom'],12,3,16,7],'circle-color':['match',['get','nature'],'locaux','#1f6fd1','demolir','#d1361f','#8e44ad'],'circle-stroke-color':'#fff','circle-stroke-width':1.5,'circle-opacity':['case',['>=',['to-string',['get','date']],'2021'],1,.55]}});
+    map.on('mousemove','per-c',e2=>{const p=e2.features[0].properties;map.getCanvas().style.cursor='pointer';
+      pop.setLngLat(e2.lngLat).setHTML(`<div class="tip"><b>${PNAT[p.nature]?PNAT[p.nature][1]:esc(p.nature)}</b> ${esc(p.type||'')} · ${esc(p.date||'')}<br>${esc(p.demandeur||'Demandeur non diffusé')}${nz(p.adresse)?'<br>'+esc(p.adresse):''}${surf('Terrain',p.terrain)}${surf('Locaux créés',p.creee)}${surf('dont bureaux',p.bur)}${surf('dont industrie',p.ind)}${surf('dont entrepôt',p.ent)}${surf('dont commerce',p.com)}${surf('Surface démolie',p.demolie)}${nz(p.chantier)?'<br>Chantier ouvert '+esc(p.chantier):''}<br><span style="color:#666">${esc(p.num)} · ${esc(p.parcelles||'')}</span></div>`).addTo(map)});
+    map.on('mouseleave','per-c',()=>{map.getCanvas().style.cursor='';pop.remove()});return}
+  vis('per-c',on)};
+$('l-fdc').onchange=async e=>{const on=e.target.checked;
+  if(on&&!map.getSource('fdc')){let z;try{z=await rpc('carto_geojson_fonds',{p_code:'37233'})}catch(x){e.target.checked=false;return}
+    map.addSource('fdc',{type:'geojson',data:z});
+    map.addLayer({id:'fdc-c',type:'circle',source:'fdc',paint:{'circle-radius':['interpolate',['linear'],['zoom'],12,3.5,16,7],'circle-color':'#e0a800','circle-stroke-color':'#5a4300','circle-stroke-width':1.5}});
+    map.on('mousemove','fdc-c',e2=>{const p=e2.features[0].properties;map.getCanvas().style.cursor='pointer';
+      pop.setLngLat(e2.lngLat).setHTML(`<div class="tip"><b>Fonds de commerce</b> · ${esc(p.date)}<br>${esc(p.activite||'')}${+p.prix?'<br><b>Prix '+n0(p.prix)+' €</b>':''}<br>Acquéreur : ${esc(p.acquereur||'')}${nz(p.precedent)?'<br>Cédant : '+esc(p.precedent):''}<br>${esc(p.adresse||'')}<br><span style="color:#666">${esc(p.categorie||'')}</span></div>`).addTo(map)});
+    map.on('mouseleave','fdc-c',()=>{map.getCanvas().style.cursor='';pop.remove()});
+    map.on('click','fdc-c',e2=>window.open('https://www.bodacc.fr/pages/annonces-commerciales-detail/?q.id=id:'+encodeURIComponent(e2.features[0].properties.id),'_blank'));return}
+  vis('fdc-c',on)};
 $('l-fri').onchange=async e=>{const on=e.target.checked;
   if(on&&!map.getSource('fri')){let z;try{z=await rpc('carto_geojson_friches',{p_code:'37233'})}catch(x){e.target.checked=false;return}
     map.addSource('fri',{type:'geojson',data:z});
