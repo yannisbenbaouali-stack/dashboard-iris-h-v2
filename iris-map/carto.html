@@ -116,6 +116,7 @@ a{color:var(--accent2)}
       <div style="margin-bottom:4px"><span class="leg" style="background:var(--p1)"></span>P1 <span class="leg" style="background:var(--p2)"></span>P2 <span class="leg" style="background:var(--p3)"></span>P3 <span class="leg" style="background:#9aa0ad"></span>autre</div>
       <label class="chk"><input type="checkbox" id="l-bat"> Activer les emprises <span class="leg" style="background:var(--p1);margin-left:3px"></span><span class="leg" style="background:var(--p2)"></span><span class="leg" style="background:var(--p3)"></span></label>
       <label class="chk"><input type="checkbox" id="l-com" checked> Limite communale</label>
+      <label class="chk" id="lab-exc"><input type="checkbox" id="l-exc"> Afficher les propriétaires exclus <span id="exc-liste" style="color:var(--dim)"></span></label>
       <label class="chk"><input type="checkbox" id="l-ocs"> Occupation du sol OCS GE</label>
       <div id="leg-ocs" class="legbox" style="display:none"></div>
       <label class="chk"><input type="checkbox" id="l-fri"> Friches Cartofriches <span class="leg" style="background:#8b5a2b;margin-left:3px"></span></label>
@@ -233,6 +234,7 @@ function filtres(){return{p_q:$('q').value.trim()||null,p_prio_max:+$('prio').va
 async function chercher(){
   $('nb').textContent='Recherche…';
   try{rows=await rpc('carto_recherche',filtres())}catch(e){$('nb').textContent='Erreur '+e.message;return}
+  rows=rows.filter(r=>!estExclu(r.proprietaires));
   $('nb').textContent=`${n0(rows.length)} bâtiment${rows.length>1?'s':''}${rows.length>=1000?' (limite 1000)':''}`;
   $('res').innerHTML=rows.map((r,i)=>`<div class="row" data-i="${i}"><div><span class="pb" style="background:${PCOL[r.prio]}">${r.prio?'P'+r.prio:'·'}</span></div><div><div class="t">${esc(r.proprietaires||r.adresse||r.usage||'Bâtiment')}</div><div class="m">${esc(r.proprietaires?r.adresse||'':'')} ${esc(r.motif||r.usage||'')}</div>${r.statut?`<span class="st">${esc(r.statut)}</span>`:''}</div><div class="s">${n0(r.emprise)} m²<div class="m">${r.annee||''}</div></div></div>`).join('');
   hlIds=rows.map(r=>r.id);
@@ -302,9 +304,24 @@ $('l-ent').onchange=e=>vis('ent',e.target.checked);
 function majFon(){const nu=$('l-fon').checked,ve=$('l-vet').checked;
   const f=['all',['in',['get','cat'],['literal',[...(nu?['Terrain nu','Faiblement bâti']:[]),...(ve?['Foncier vétuste']:[])]]]];
   if(mode==='par'){const a=+$('psmin').value||0,b=+$('psmax').value||0;if(a)f.push(['>=',['to-number',['get','surf']],a]);if(b)f.push(['<=',['to-number',['get','surf']],b])}
+  const ex=excExpr('prop');if(ex)f.push(ex);
   ['fon-f','fon-l'].forEach(l=>{vis(l,nu||ve);map.getLayer(l)&&map.setFilter(l,f)});
   if((nu||ve)&&map.getZoom()<13)msg('Foncier visible à partir du zoom 13',2500)}
 $('l-fon').onchange=majFon;$('l-vet').onchange=majFon;
+// Exclusions générales de propriétaires (table carto_exclusions)
+let EXC=[];
+const excExpr=champ=>EXC.length&&!$('l-exc').checked?['!',['any',...EXC.map(m=>['in',m,['upcase',['to-string',['coalesce',['get',champ],'']]]])]]:null;
+const estExclu=t=>!$('l-exc').checked&&EXC.some(m=>String(t||'').toUpperCase().includes(m));
+function majExclusions(){
+  const eb=excExpr('prop');['bat-f','bat-l'].forEach(l=>map.getLayer(l)&&map.setFilter(l,eb));
+  const ee=excExpr('nom');map.getLayer('ent')&&map.setFilter('ent',ee);
+  majFon();$('exc-liste').textContent=EXC.length?'('+EXC.join(', ')+')':'';
+  if(mode==='par')chercherParcelles();else chercher()}
+async function chargerExclusions(){try{const r=await fetch(`${SUPA_URL}/rest/v1/carto_exclusions?select=motif&actif=eq.true`,{headers:hdr()}).then(r=>r.json());EXC=(r||[]).map(x=>String(x.motif).toUpperCase());majExclusions()}catch(e){}}
+async function ajouterExclusion(m){m=m.trim().toUpperCase();if(!m||EXC.includes(m))return;
+  await fetch(`${SUPA_URL}/rest/v1/carto_exclusions`,{method:'POST',headers:{...hdr(),'Prefer':'return=minimal'},body:JSON.stringify({motif:m,raison:'Ajouté depuis le champ critères'})}).catch(()=>{});
+  EXC.push(m);majExclusions()}
+$('l-exc').onchange=majExclusions;
 // Mode parcelles
 let mode='bat', prow=[];
 function setMode(m){mode=m;$('m-bat').classList.toggle('on',m==='bat');$('m-par').classList.toggle('on',m==='par');$('ctl-bat').classList.toggle('cache',m!=='bat');$('ctl-par').classList.toggle('cache',m!=='par');
@@ -340,16 +357,20 @@ function lireCriteres(t){
   if(/particulier|personne physique/.test(tl)){c.proprio_physique=true;vu.push('propriétaire particulier')}
   m=tl.match(/avant (1[89]\d\d|20\d\d)/);if(m&&!/avant 1980/.test(tl)){c.annee_max=+m[1];vu.push('bâti avant '+m[1])}
   if(/plus petites? d.abord|croissant/.test(tl)){c.ordre='asc';vu.push('tri croissant')}
+  m=tl.match(/\b(masque[rz]?|exclu(?:re|s|e)?|retire[rz]?|cache[rz]?)\b(?:\s+par defaut)?(?:\s+tou[st]e?s?)?(?:\s+les)?(?:\s+proprietaires?)?\s+["«]?([a-z0-9&' .]{3,40}?)["»]?\s*(?:,|;|\.|$|\bet\b|\bpar\b)/);
+  if(m&&!/public|organisme|commune|etat/.test(m[2])){c.masquer=m[2].trim();vu.push('masquer toujours les propriétaires '+c.masquer.toUpperCase())}
+  if(/avec les exclus|inclure les exclus|y compris/.test(tl)){c.inclure_exclus=true;vu.push('exclus affichés')}
   return{c,vu}}
 let critTexte='';
 $('pcrit-ok').onclick=async()=>{critTexte=$('pcrit').value.trim();const L=lireCriteres(critTexte);
   if(L.c.cat)$('pcat').value=L.c.cat;if(L.c.smin!=null)$('psmin').value=L.c.smin;if(L.c.smax!=null)$('psmax').value=L.c.smax;if(L.c.ordre)$('pordre').value=L.c.ordre;
   $('pcrit-compris').innerHTML=critTexte?(L.vu.length?'Compris : '+esc(L.vu.join(' · ')):'Rien de reconnu automatiquement')+'<br>Critère enregistré, Claude affinera la base à partir de ce texte.':'';
+  if(L.c.masquer)await ajouterExclusion(L.c.masquer);
   majFon();chercherParcelles();
   if(critTexte)fetch(`${SUPA_URL}/rest/v1/carto_criteres`,{method:'POST',headers:{...hdr(),'Prefer':'return=minimal'},body:JSON.stringify({texte:critTexte,mode:'parcelles',compris:L.c})}).catch(()=>{});
 };
 $('pcrit-raz').onclick=()=>{$('pcrit').value='';critTexte='';$('pcrit-compris').innerHTML='';chercherParcelles()};
-function critForm(){const L=lireCriteres(critTexte);return Object.assign({},L.c,{cat:$('pcat').value,smin:+$('psmin').value||0,smax:+$('psmax').value||null,ordre:$('pordre').value,limit:500})}
+function critForm(){const L=lireCriteres(critTexte);delete L.c.masquer;return Object.assign({inclure_exclus:$('l-exc').checked},L.c,{cat:$('pcat').value,smin:+$('psmin').value||0,smax:+$('psmax').value||null,ordre:$('pordre').value,limit:500})}
 async function majReponseClaude(){try{const r=await fetch(`${SUPA_URL}/rest/v1/carto_criteres?select=texte,reponse&reponse=not.is.null&order=traite_at.desc&limit=1`,{headers:hdr()}).then(r=>r.json());
   if(r&&r[0])$('pcrit-claude').innerHTML='<b>Claude :</b> '+esc(r[0].reponse)}catch(e){}}
 async function chercherParcelles(){
@@ -548,6 +569,7 @@ map.on('load',async()=>{
   if(!(await auth())){sessionKO();return}
   setInterval(auth,10*60*1000);
   addData();
+  chargerExclusions();
   rpc('carto_geojson_commune',{p_code:'37233'}).then(g=>{if(!g)return;map.addSource('com',{type:'geojson',data:g});map.addLayer({id:'com-l',type:'line',source:'com',paint:{'line-color':'#000','line-width':2.5}})}).catch(()=>{});
   chercher();
   const stats=(n)=>rpc('carto_stats',{p_code:'37233'}).then(s=>{$('stat').textContent=`Saint Pierre des Corps · ${n0(s.p1)} P1 · ${n0(s.p2)} P2 · ${n0(s.p3)} P3`}).catch(()=>{if(n)setTimeout(()=>stats(n-1),3000)});
