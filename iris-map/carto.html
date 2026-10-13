@@ -25,6 +25,8 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:13px/1
 .hd .sub{color:var(--dim);font-size:11px}
 .ctl{padding:10px 14px;border-bottom:1px solid var(--line);display:grid;grid-template-columns:1fr 1fr;gap:6px}
 .ctl .full{grid-column:1/3}
+.modes{display:flex;gap:0;padding:8px 14px 0}.modes button{border-radius:0;font-size:12px;padding:5px}.modes button:first-child{border-radius:6px 0 0 6px}.modes button:last-child{border-radius:0 6px 6px 0}.modes button.on{background:var(--accent2);color:#fff;border-color:var(--accent2)}
+.ctl.cache{display:none}
 input,select,textarea,button{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:5px 7px;width:100%}
 button{cursor:pointer;background:var(--panel)}
 button.pri{background:var(--accent2);color:#fff;border-color:var(--accent2)}
@@ -85,7 +87,14 @@ a{color:var(--accent2)}
 <div id="app">
   <aside id="side">
     <div class="hd"><h1><a href="index.html" title="Retour au dashboard">IRIS <span class="b">H</span></a> <span class="sep">|</span> <span class="b">MAP</span></h1><div class="sub">Prospection IRIS REP · <span id="stat"></span></div></div>
-    <div class="ctl">
+    <div class="modes"><button id="m-bat" class="on">Bâtiments</button><button id="m-par">Parcelles</button></div>
+    <div class="ctl cache" id="ctl-par">
+      <div class="full"><div class="lbl">Catégorie</div><select id="pcat"><option value="nu">Foncier nu, tout</option><option value="terrain_nu">Foncier nu, terrain nu</option><option value="faible">Foncier nu, faiblement bâti</option><option value="vetuste">Foncier vétuste</option><option value="tout">Toutes les parcelles</option></select></div>
+      <div><div class="lbl">Surface min m²</div><input id="psmin" type="number" value="1000" step="100"></div>
+      <div><div class="lbl">Surface max m²</div><input id="psmax" type="number" step="100"></div>
+      <div class="full"><div class="lbl">Tri</div><select id="pordre"><option value="desc">Plus grandes d'abord</option><option value="asc">Plus petites d'abord</option></select></div>
+    </div>
+    <div class="ctl" id="ctl-bat">
       <input class="full" id="q" placeholder="Propriétaire, SIREN, adresse, occupant, NAF, note…">
       <div><div class="lbl">Priorité</div><select id="prio"><option value="1">P1</option><option value="2">P1 et P2</option><option value="3" selected>P1 à P3</option><option value="0">Tous</option></select></div>
       <div><div class="lbl">Suivi</div><select id="statut"><option value="">Tous</option><option value="aucun">Jamais traité</option></select></div>
@@ -102,7 +111,9 @@ a{color:var(--accent2)}
     <div id="search"><input id="adr" placeholder="Aller à une adresse ou une commune"><div id="sugg"></div></div>
     <div id="layers">
       <div style="margin-bottom:4px"><span class="leg" style="background:var(--p1)"></span>P1 <span class="leg" style="background:var(--p2)"></span>P2 <span class="leg" style="background:var(--p3)"></span>P3 <span class="leg" style="background:#9aa0ad"></span>autre</div>
-      <label class="chk"><input type="checkbox" id="l-bat" checked> Bâtiments d'activité P1 P2 P3</label>
+      <label class="chk"><input type="checkbox" id="l-bat"> Activer les emprises <span class="leg" style="background:var(--p1);margin-left:3px"></span><span class="leg" style="background:var(--p2)"></span><span class="leg" style="background:var(--p3)"></span></label>
+      <label class="chk"><input type="checkbox" id="l-com" checked> Limite communale</label>
+      <label class="chk"><input type="checkbox" id="l-bod"> Propriétaire ou occupant en difficulté <span class="leg" style="background:#fff;border:2px solid #000;margin-left:3px"></span></label>
       <label class="chk"><input type="checkbox" id="l-cad" checked> Cadastre</label>
       <label class="chk"><input type="checkbox" id="l-ortho"> Photo aérienne</label>
       <label class="chk"><input type="checkbox" id="l-fon"> Foncier nu <span class="leg" style="background:#2e9e44;margin-left:3px" title="Terrain nu"></span><span class="leg" style="background:#f2c230" title="Faiblement bâti, emprise inférieure à 40 %"></span></label>
@@ -175,12 +186,12 @@ function addData(){
   map.on('mousemove','fon-f',e=>{if(map.queryRenderedFeatures(e.point,{layers:['bat-f','ent','rep-f','rep-p']}).length)return;const p=e.features[0].properties;
     pop.setLngLat(e.lngLat).setHTML(`<div class="tip"><b>${p.cat==='Foncier vétuste'?'Foncier vétuste':'Foncier nu · '+esc(p.cat)}</b> · parcelle ${esc(p.idu)}<br>Terrain ${n0(p.surf)} m²${+p.emp?' · bâti '+n0(p.emp)+' m² ('+p.taux+' %)':''}${nz(p.annee)?'<br>Activité construite en '+p.annee:''}${nz(p.zonage)?'<br>Zone '+esc(p.zonage)+(p.za===true||p.za==='true'?' (activité)':''):''}${nz(p.prop)?'<br>Propriétaire : '+esc(p.prop):''}</div>`).addTo(map)});
   map.on('mouseleave','fon-f',()=>pop.remove());
-  map.addLayer({id:'bat-f',type:'fill',source:'t','source-layer':'bat',paint:{
+  map.addLayer({id:'bat-f',type:'fill',source:'t','source-layer':'bat',layout:{visibility:'none'},paint:{
     'fill-color':['match',['get','prio'],1,PCOL[1],2,PCOL[2],3,PCOL[3],PCOL[0]],
     'fill-opacity':['case',['boolean',['feature-state','hover'],false],.95,['>',['get','prio'],0],.72,.22]}});
-  map.addLayer({id:'bat-l',type:'line',source:'t','source-layer':'bat',paint:{'line-color':['case',['>',['get','nbprop'],0],'#2f5d8a','#55595f'],'line-width':['case',['>',['get','nbprop'],0],1.4,.4]}});
-  map.addLayer({id:'bat-suivi',type:'line',source:'t','source-layer':'bat',filter:['has','statut'],paint:{'line-color':'#111','line-width':2.4,'line-dasharray':[2,1]}});
-  map.addLayer({id:'bat-hl',type:'line',source:'t','source-layer':'bat',filter:['in',['get','id'],['literal',[]]],paint:{'line-color':'#00a3ff','line-width':3}});
+  map.addLayer({id:'bat-l',type:'line',source:'t','source-layer':'bat',layout:{visibility:'none'},paint:{'line-color':['case',['>',['get','nbprop'],0],'#2f5d8a','#55595f'],'line-width':['case',['>',['get','nbprop'],0],1.4,.4]}});
+  map.addLayer({id:'bat-suivi',type:'line',source:'t','source-layer':'bat',filter:['has','statut'],layout:{visibility:'none'},paint:{'line-color':'#111','line-width':2.4,'line-dasharray':[2,1]}});
+  map.addLayer({id:'bat-hl',type:'line',source:'t','source-layer':'bat',filter:['in',['get','id'],['literal',[]]],layout:{visibility:'none'},paint:{'line-color':'#00a3ff','line-width':3}});
   map.addLayer({id:'ent',type:'circle',source:'t','source-layer':'ent',paint:{'circle-radius':['interpolate',['linear'],['zoom'],12,2,15,3.5,18,5],'circle-color':'#e3121b','circle-stroke-color':['match',['get','role'],'Propriétaire','#111','#fff'],'circle-stroke-width':['match',['get','role'],'Propriétaire',1.4,.8]}});
   map.on('mousemove','ent',e=>{const p=e.features[0].properties;map.getCanvas().style.cursor='pointer';pop.setLngLat(e.lngLat).setHTML(`<div class="tip"><b>${esc(p.nom)}</b><br>${esc(p.role)}${p.prio?' · bâtiment P'+p.prio:''}${nz(p.naf)?'<br>NAF '+esc(p.naf):''}${nz(p.eff)?' · effectif '+esc(EFF[p.eff]||p.eff):''}${nz(p.siren)?'<br>SIREN '+esc(p.siren):''}</div>`).addTo(map)});
   map.on('mouseleave','ent',()=>{map.getCanvas().style.cursor='';pop.remove()});
@@ -223,7 +234,10 @@ async function chercher(){
 }
 function go(){clearTimeout(tq);tq=setTimeout(chercher,300)}
 ['q','prio','statut','smin','smax','za','pm'].forEach(id=>{$(id).addEventListener('input',go);$(id).addEventListener('change',go)});
-$('res').onclick=e=>{const el=e.target.closest('.row');if(!el)return;const r=rows[+el.dataset.i];map.flyTo({center:[r.lon,r.lat],zoom:Math.max(map.getZoom(),17)});openFiche(r.id)};
+$('res').onclick=e=>{const el=e.target.closest('.row');if(!el)return;
+  if(el.dataset.p!=null){const p=prow[+el.dataset.p];map.flyTo({center:[p.lon,p.lat],zoom:Math.max(map.getZoom(),17)});
+    pop.setLngLat([p.lon,p.lat]).setHTML(`<div class="tip"><b>Parcelle ${esc(p.idu)}</b><br>${n0(p.surf)} m²${p.cat?' · '+esc(p.cat):''}${p.zonage?'<br>Zone '+esc(p.zonage):''}${p.prop?'<br>'+esc(p.prop):''}</div>`).addTo(map);return}
+  const r=rows[+el.dataset.i];map.flyTo({center:[r.lon,r.lat],zoom:Math.max(map.getZoom(),17)});openFiche(r.id)};
 $('csv').onclick=()=>{
   const cols=['prio','motif','usage','emprise','plancher','annee','adresse','proprietaires','siren','za','statut','notes','contact','action','lat','lon','id'];
   const csv=[cols.join(';')].concat(rows.map(r=>cols.map(c=>'"'+String(r[c]==null?'':r[c]).replace(/"/g,'""')+'"').join(';'))).join('\n');
@@ -275,14 +289,50 @@ $('pub-list').addEventListener('change',e=>{const i=e.target.dataset.pub;if(i==n
 
 // Couches
 $('l-cad').onchange=e=>vis('cad',e.target.checked);
-$('l-bat').onchange=e=>['bat-f','bat-l','bat-suivi','bat-hl'].forEach(l=>vis(l,e.target.checked));
+$('l-bat').onchange=e=>{['bat-f','bat-l','bat-suivi','bat-hl'].forEach(l=>vis(l,e.target.checked));if(e.target.checked&&map.getZoom()<12)msg('Emprises visibles à partir du zoom 12',2500)};
 $('l-ortho').onchange=e=>{vis('ortho',e.target.checked);vis('plan',!e.target.checked)};
 $('l-etab').onchange=e=>vis('etab',e.target.checked);
 $('l-ent').onchange=e=>vis('ent',e.target.checked);
 function majFon(){const nu=$('l-fon').checked,ve=$('l-vet').checked;
-  ['fon-f','fon-l'].forEach(l=>{vis(l,nu||ve);map.getLayer(l)&&map.setFilter(l,['in',['get','cat'],['literal',[...(nu?['Terrain nu','Faiblement bâti']:[]),...(ve?['Foncier vétuste']:[])]]])});
+  const f=['all',['in',['get','cat'],['literal',[...(nu?['Terrain nu','Faiblement bâti']:[]),...(ve?['Foncier vétuste']:[])]]]];
+  if(mode==='par'){const a=+$('psmin').value||0,b=+$('psmax').value||0;if(a)f.push(['>=',['to-number',['get','surf']],a]);if(b)f.push(['<=',['to-number',['get','surf']],b])}
+  ['fon-f','fon-l'].forEach(l=>{vis(l,nu||ve);map.getLayer(l)&&map.setFilter(l,f)});
   if((nu||ve)&&map.getZoom()<13)msg('Foncier visible à partir du zoom 13',2500)}
 $('l-fon').onchange=majFon;$('l-vet').onchange=majFon;
+// Mode parcelles
+let mode='bat', prow=[];
+function setMode(m){mode=m;$('m-bat').classList.toggle('on',m==='bat');$('m-par').classList.toggle('on',m==='par');$('ctl-bat').classList.toggle('cache',m!=='bat');$('ctl-par').classList.toggle('cache',m!=='par');
+  if(map.getLayer('par-l'))['par-f','par-l'].forEach(l=>vis(l,m==='par'));
+  if(m==='par'){const c=$('pcat').value;if(c!=='tout'){if(c==='vetuste')$('l-vet').checked=true;else $('l-fon').checked=true}majFon();chercherParcelles()}else{majFon();chercher()}}
+$('m-bat').onclick=()=>setMode('bat');$('m-par').onclick=()=>setMode('par');
+async function chercherParcelles(){
+  $('nb').textContent='Recherche…';let r;
+  try{r=await rpc('carto_recherche_parcelles',{p_code:'37233',p_cat:$('pcat').value,p_smin:+$('psmin').value||0,p_smax:+$('psmax').value||null,p_ordre:$('pordre').value,p_limit:500})}catch(e){$('nb').textContent='Erreur';return}
+  prow=r.rows||[];
+  $('nb').textContent=`${n0(r.total)} parcelle${r.total>1?'s':''}${r.total>prow.length?' ('+prow.length+' listées)':''}`;
+  $('res').innerHTML=prow.map((p,i)=>`<div class="row" data-p="${i}"><div><span class="leg" style="display:inline-block;width:14px;height:14px;border-radius:3px;background:${p.cat==='Terrain nu'?'#2e9e44':p.cat==='Faiblement bâti'?'#f2c230':p.cat==='Foncier vétuste'?'#f07c1c':'#9aa0ad'}"></span></div><div><div class="t">${esc(p.idu)}${p.zonage?' · '+esc(p.zonage):''}</div><div class="m">${esc(p.cat||'')}${p.taux!=null&&p.cat?' · emprise '+p.taux+' %':''}${p.annee?' · '+p.annee:''}${p.prop?'<br>'+esc(p.prop):''}</div></div><div class="s">${n0(p.surf)} m²</div></div>`).join('');
+  const g=r.geo||{type:'FeatureCollection',features:[]};
+  if(map.getSource('par'))map.getSource('par').setData(g);else{map.addSource('par',{type:'geojson',data:g});
+    map.addLayer({id:'par-f',type:'fill',source:'par',paint:{'fill-color':'#00a3ff','fill-opacity':.12}});
+    map.addLayer({id:'par-l',type:'line',source:'par',paint:{'line-color':'#00a3ff','line-width':2}});}
+}
+function goP(){clearTimeout(tq);tq=setTimeout(()=>{majFon();chercherParcelles()},300)}
+['pcat','psmin','psmax','pordre'].forEach(id=>{$(id).addEventListener('input',goP);$(id).addEventListener('change',goP)});
+$('l-com').onchange=e=>vis('com-l',e.target.checked);
+$('l-bod').onchange=async e=>{
+  const on=e.target.checked;
+  if(on&&!map.getSource('bod')){msg('Chargement BODACC…');let z;try{z=await rpc('carto_geojson_bodacc',{p_code:'37233'})}catch(x){e.target.checked=false;return}msg('');
+    map.addSource('bod',{type:'geojson',data:z});
+    map.addLayer({id:'bod-f',type:'fill',source:'bod',paint:{'fill-color':'#000','fill-opacity':.08}});
+    map.addLayer({id:'bod-l',type:'line',source:'bod',paint:{'line-color':'#000','line-width':3}});
+    const lst=p=>{let a=[];try{a=JSON.parse(p.annonces)}catch(x){}return a};
+    map.on('mousemove','bod-f',e2=>{const p=e2.features[0].properties;map.getCanvas().style.cursor='pointer';
+      pop.setLngLat(e2.lngLat).setHTML(`<div class="tip"><b>BODACC</b>${lst(p).slice(0,4).map(a=>`<br>${esc(a.role)} : ${esc(a.nom||a.siren)}<br><i>${esc(a.nature||a.famille)} · ${esc(a.date)}</i>`).join('')}</div>`).addTo(map)});
+    map.on('mouseleave','bod-f',()=>{map.getCanvas().style.cursor='';pop.remove()});
+    map.on('click','bod-f',e2=>{e2.preventDefault();openFiche(e2.features[0].properties.bat)});
+    return}
+  ['bod-f','bod-l'].forEach(l=>vis(l,on));
+};
 // PLU et PPRI
 const PLU_COL={UA:'#d9534f',UB:'#f08a4b',UC:'#f4c542',US:'#5bc0de',UX:'#8e44ad','1AU':'#f7a6a6',A:'#b5d36a',N:'#3d9970'};
 const PLU_NOM={UA:'UA centre',UB:'UB mixte',UC:'UC pavillonnaire',US:'US sports',UX:'UX activités','1AU':'1AU à urbaniser',A:'A agricole',N:'N naturelle'};
@@ -430,6 +480,7 @@ map.on('load',async()=>{
   if(!(await auth())){sessionKO();return}
   setInterval(auth,10*60*1000);
   addData();
+  rpc('carto_geojson_commune',{p_code:'37233'}).then(g=>{if(!g)return;map.addSource('com',{type:'geojson',data:g});map.addLayer({id:'com-l',type:'line',source:'com',paint:{'line-color':'#000','line-width':2.5}})}).catch(()=>{});
   chercher();
   const stats=(n)=>rpc('carto_stats',{p_code:'37233'}).then(s=>{$('stat').textContent=`Saint Pierre des Corps · ${n0(s.p1)} P1 · ${n0(s.p2)} P2 · ${n0(s.p3)} P3`}).catch(()=>{if(n)setTimeout(()=>stats(n-1),3000)});
   stats(2);
