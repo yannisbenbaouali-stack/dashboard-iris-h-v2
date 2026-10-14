@@ -122,6 +122,8 @@ a{color:var(--accent2)}
       <label class="chk"><input type="checkbox" id="l-ocs"> Occupation du sol OCS GE</label>
       <div id="leg-ocs" class="legbox" style="display:none"></div>
       <label class="chk"><input type="checkbox" id="l-per"> Permis Sitadel <span class="leg" style="background:#1f6fd1;border-radius:50%;margin-left:3px" title="locaux"></span><span class="leg" style="background:#d1361f;border-radius:50%" title="démolir"></span><span class="leg" style="background:#8e44ad;border-radius:50%" title="aménager"></span></label>
+      <label class="chk"><input type="checkbox" id="l-dvf"> Ventes DVF <span class="leg" style="background:#c0392b;border-radius:50%;margin-left:3px" title="activité"></span><span class="leg" style="background:#27ae60;border-radius:50%" title="terrain"></span><span class="leg" style="background:#b0b4bb;border-radius:50%" title="logement"></span></label>
+      <label class="chk"><input type="checkbox" id="l-ene"> Réseau Enedis et consommations <span class="leg" style="background:#f39c12;margin-left:3px"></span></label>
       <label class="chk"><input type="checkbox" id="l-loy"> Références de loyers <span class="leg" style="background:#0f8b8d;border-radius:50%;margin-left:3px"></span></label>
       <label class="chk"><input type="checkbox" id="l-dpe"> DPE tertiaires ADEME <span class="leg" style="background:linear-gradient(90deg,#009a3d,#55b947,#c6d300,#fff200,#f9b000,#eb5d0b,#d7221f);width:28px;margin-left:3px"></span></label>
       <label class="chk"><input type="checkbox" id="l-fdc"> Ventes de fonds de commerce <span class="leg" style="background:#e0a800;transform:rotate(45deg);margin-left:3px"></span></label>
@@ -484,6 +486,28 @@ $('l-loy').onchange=async e=>{const on=e.target.checked;
       pop.setLngLat(e2.lngLat).setHTML(`<div class="tip"><b>${esc(r.type||'')} · ${r.loyer_m2??''} €/m²/an</b><br>${n0(r.surface)} m² · ${n0(r.loyer)} € HT/an${+r.franchise?' · franchise '+r.franchise+' mois':''}<br>${esc(r.date||'')}${nz(r.preneur)?' · '+esc(r.preneur):''}${nz(r.source)?'<br><span style="color:#666">'+esc(r.source)+'</span>':''}</div>`).addTo(map)});
     map.on('mouseleave','loy-c',()=>{map.getCanvas().style.cursor='';pop.remove()});return}
   vis('loy-c',on)};
+const DVF_COL={activite:'#c0392b',terrain:'#27ae60',dependance:'#8e7cc3',logement:'#b0b4bb'};
+const DVF_LIB={activite:'Local d\'activité ou commercial',terrain:'Terrain',dependance:'Dépendance',logement:'Logement'};
+$('l-dvf').onchange=async e=>{const on=e.target.checked;
+  if(on&&!map.getSource('dvf')){let z;try{z=await rpc('carto_geojson_dvf',{p_code:'37233'})}catch(x){e.target.checked=false;return}
+    map.addSource('dvf',{type:'geojson',data:z});
+    const col=['match',['get','cat']];Object.entries(DVF_COL).forEach(([k,v])=>col.push(k,v));col.push('#999');
+    map.addLayer({id:'dvf-c',type:'circle',source:'dvf',paint:{'circle-radius':['match',['get','cat'],'logement',3,['interpolate',['linear'],['zoom'],12,4,16,8]],'circle-color':col,'circle-stroke-color':'#fff','circle-stroke-width':1.2,'circle-opacity':['match',['get','cat'],'logement',.6,1]}});
+    map.on('mousemove','dvf-c',e2=>{const p=e2.features[0].properties;map.getCanvas().style.cursor='pointer';
+      pop.setLngLat(e2.lngLat).setHTML(`<div class="tip"><b>${DVF_LIB[p.cat]||''} · ${n0(p.valeur)} €</b>${+p.prix_m2?' · '+n0(p.prix_m2)+' €/m²':''}<br>${esc(p.date)} · ${esc(p.nature||'')}<br>${esc(p.types||'Terrain nu')}${+p.surf_bati?'<br>Bâti '+n0(p.surf_bati)+' m²':''}${+p.surf_terrain?' · terrain '+n0(p.surf_terrain)+' m²':''}<br>${esc(p.adresse||'')}<br><span style="color:#666">${esc(p.parcelles||'')}</span></div>`).addTo(map)});
+    map.on('mouseleave','dvf-c',()=>{map.getCanvas().style.cursor='';pop.remove()});return}
+  vis('dvf-c',on)};
+$('l-ene').onchange=async e=>{const on=e.target.checked;
+  if(on&&!map.getSource('ene')){let z;try{z=await rpc('carto_geojson_enedis',{p_code:'37233'})}catch(x){e.target.checked=false;return}
+    map.addSource('ene',{type:'geojson',data:z});
+    map.addLayer({id:'ene-l',type:'line',source:'ene',filter:['in',['get','type'],['literal',['hta_aerien','hta_souterrain']]],paint:{'line-color':'#f39c12','line-width':['match',['get','type'],'hta_aerien',2,1.4],'line-dasharray':[2,1]}});
+    map.addLayer({id:'ene-p',type:'circle',source:'ene',filter:['==',['get','type'],'poste'],paint:{'circle-radius':3.5,'circle-color':'#f39c12','circle-stroke-color':'#7a4a00','circle-stroke-width':1}});
+    map.addLayer({id:'ene-c',type:'circle',source:'ene',filter:['==',['get','type'],'conso'],paint:{'circle-radius':['interpolate',['linear'],['to-number',['get','mwh']],0,3,100,6,1000,11,5000,18],'circle-color':'rgba(243,156,18,.35)','circle-stroke-color':'#d35400','circle-stroke-width':1.2}});
+    map.on('mousemove','ene-p',e2=>{pop.setLngLat(e2.lngLat).setHTML('<div class="tip"><b>Poste de distribution Enedis HTA/BT</b></div>').addTo(map)});
+    map.on('mouseleave','ene-p',()=>pop.remove());
+    map.on('mousemove','ene-c',e2=>{const p=e2.features[0].properties;pop.setLngLat(e2.lngLat).setHTML(`<div class="tip"><b>${n0(p.mwh)} MWh/an</b> · ${esc(p.annee)}<br>${esc(p.adresse||'')}<br>${esc(p.secteur||'')} · NAF ${esc(p.naf||'')} · ${p.sites} site${p.sites>1?'s':''}</div>`).addTo(map)});
+    map.on('mouseleave','ene-c',()=>pop.remove());return}
+  ['ene-l','ene-p','ene-c'].forEach(l=>vis(l,on))};
 const DPE_COL={A:'#009a3d',B:'#55b947',C:'#c6d300',D:'#fff200',E:'#f9b000',F:'#eb5d0b',G:'#d7221f'};
 $('l-dpe').onchange=async e=>{const on=e.target.checked;
   if(on&&!map.getSource('dpe')){let z;try{z=await rpc('carto_geojson_dpe',{p_code:'37233'})}catch(x){e.target.checked=false;return}
