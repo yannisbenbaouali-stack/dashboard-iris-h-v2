@@ -122,6 +122,7 @@ a{color:var(--accent2)}
       <label class="chk"><input type="checkbox" id="l-ocs"> Occupation du sol OCS GE</label>
       <div id="leg-ocs" class="legbox" style="display:none"></div>
       <label class="chk"><input type="checkbox" id="l-per"> Permis Sitadel <span class="leg" style="background:#1f6fd1;border-radius:50%;margin-left:3px" title="locaux"></span><span class="leg" style="background:#d1361f;border-radius:50%" title="démolir"></span><span class="leg" style="background:#8e44ad;border-radius:50%" title="aménager"></span></label>
+      <label class="chk"><input type="checkbox" id="l-loy"> Références de loyers <span class="leg" style="background:#0f8b8d;border-radius:50%;margin-left:3px"></span></label>
       <label class="chk"><input type="checkbox" id="l-dpe"> DPE tertiaires ADEME <span class="leg" style="background:linear-gradient(90deg,#009a3d,#55b947,#c6d300,#fff200,#f9b000,#eb5d0b,#d7221f);width:28px;margin-left:3px"></span></label>
       <label class="chk"><input type="checkbox" id="l-fdc"> Ventes de fonds de commerce <span class="leg" style="background:#e0a800;transform:rotate(45deg);margin-left:3px"></span></label>
       <label class="chk"><input type="checkbox" id="l-fri"> Friches Cartofriches <span class="leg" style="background:#8b5a2b;margin-left:3px"></span></label>
@@ -198,13 +199,15 @@ function addData(){
   map.addLayer({id:'parc-f',type:'fill',source:'t','source-layer':'parc',minzoom:15,paint:{'fill-color':'#000','fill-opacity':0}},'fon-f');
   map.addLayer({id:'parc-hl',type:'line',source:'t','source-layer':'parc',minzoom:15,filter:['==',['get','idu'],''],paint:{'line-color':'#111','line-width':2}},'fon-f');
   const tipParc=(p,cat)=>{const emp=+p.emp||0,surf=+p.surf||0,coef=p.coef!=null&&p.coef!==''?+p.coef:(surf?Math.round(emp/surf*100):0);
-    return `<div class="tip">${cat?'<b>'+esc(cat)+'</b><br>':''}<b>${nz(p.prop)?esc(p.prop):'Propriétaire particulier, nom non public'}</b>${nz(p.pt)&&nz(p.prop)?' <i>('+esc(p.pt)+')</i>':''}<br>Foncier ${n0(surf)} m² · emprise ${n0(emp)} m² (${coef} %)<br><span style="color:#666">Parcelle ${esc(p.idu)}${nz(p.zon||p.zonage)?' · zone '+esc(p.zon||p.zonage):''}${nz(p.ppri)?' · PPRI '+esc(p.ppri):''}${nz(p.annee)?' · activité de '+p.annee:''}</span></div>`};
+    return `<div class="tip">${cat?'<b>'+esc(cat)+'</b><br>':''}<b>${nz(p.prop)?esc(p.prop):'Propriétaire particulier, nom non public'}</b>${nz(p.pt)&&nz(p.prop)?' <i>('+esc(p.pt)+')</i>':''}<br>Foncier ${n0(surf)} m² · emprise ${n0(emp)} m² (${coef} %)${vlpLigne(p)}<br><span style="color:#666">Parcelle ${esc(p.idu)}${nz(p.zon||p.zonage)?' · zone '+esc(p.zon||p.zonage):''}${nz(p.ppri)?' · PPRI '+esc(p.ppri):''}${nz(p.annee)?' · activité de '+p.annee:''}</span></div>`};
   map.on('mousemove','fon-f',e=>{if(map.queryRenderedFeatures(e.point,{layers:['bat-f','ent','rep-f','rep-p'].filter(l=>map.getLayoutProperty(l,'visibility')!=='none')}).length)return;const p=e.features[0].properties;
     const cat=p.cat==='Foncier vétuste'?'Foncier vétuste':'Foncier nu · '+p.cat;pop.setLngLat(e.lngLat).setHTML(tipParc({...p,coef:p.taux},cat)).addTo(map)});
   map.on('mousemove','parc-f',e=>{const p=e.features[0].properties;map.setFilter('parc-hl',['==',['get','idu'],p.idu]);
     if(map.queryRenderedFeatures(e.point,{layers:['bat-f','ent','rep-f','rep-p','fon-f','bod-f','fri-f'].filter(l=>map.getLayer(l)&&map.getLayoutProperty(l,'visibility')!=='none')}).length)return;
     pop.setLngLat(e.lngLat).setHTML(tipParc(p)).addTo(map)});
   map.on('mouseleave','parc-f',()=>{map.setFilter('parc-hl',['==',['get','idu'],'']);pop.remove()});
+  map.on('click','parc-f',e=>{if(e.defaultPrevented)return;if(map.queryRenderedFeatures(e.point,{layers:['bat-f','ent','rep-f','rep-p','bod-f','fri-f','per-c','fdc-c','dpe-c','loy-c'].filter(l=>map.getLayer(l)&&map.getLayoutProperty(l,'visibility')!=='none')}).length)return;
+    openParcelle(e.features[0].properties,e.lngLat)});
   map.on('mouseleave','fon-f',()=>pop.remove());
   map.addLayer({id:'bat-f',type:'fill',source:'t','source-layer':'bat',layout:{visibility:'none'},paint:{
     'fill-color':['match',['get','prio'],1,PCOL[1],2,PCOL[2],3,PCOL[3],PCOL[0]],
@@ -433,6 +436,54 @@ $('l-per').onchange=async e=>{const on=e.target.checked;
       pop.setLngLat(e2.lngLat).setHTML(`<div class="tip"><b>${PNAT[p.nature]?PNAT[p.nature][1]:esc(p.nature)}</b> ${esc(p.type||'')} · ${esc(p.date||'')}<br>${esc(p.demandeur||'Demandeur non diffusé')}${nz(p.adresse)?'<br>'+esc(p.adresse):''}${surf('Terrain',p.terrain)}${surf('Locaux créés',p.creee)}${surf('dont bureaux',p.bur)}${surf('dont industrie',p.ind)}${surf('dont entrepôt',p.ent)}${surf('dont commerce',p.com)}${surf('Surface démolie',p.demolie)}${nz(p.chantier)?'<br>Chantier ouvert '+esc(p.chantier):''}<br><span style="color:#666">${esc(p.num)} · ${esc(p.parcelles||'')}</span></div>`).addTo(map)});
     map.on('mouseleave','per-c',()=>{map.getCanvas().style.cursor='';pop.remove()});return}
   vis('per-c',on)};
+// Loyers : grille DGFiP et références signées
+let VLP={},LOY=null;
+const VLP_CAT=['BUR1','BUR2','ATE1','ATE2','DEP1','DEP2','IND1','MAG1'];
+const vlpT=(c,sct,k)=>{const g=VLP[c];if(!g||!sct)return null;const v=g.tarifs[String(sct)];return v!=null?Math.round(v*(+k||1)*10)/10:null};
+function vlpLigne(p){if(!p.vs||!VLP.BUR1)return '';const b=vlpT('BUR1',p.vs,p.vc),a=vlpT('ATE1',p.vs,p.vc),d=vlpT('DEP1',p.vs,p.vc);
+  return `<br><span style="color:#0f6b6d">Réf. DGFiP 2026, secteur ${p.vs} : bureaux ${b} · ateliers ${a} · dépôts ${d} €/m²/an</span>`}
+async function chargerLoyers(){try{LOY=await rpc('carto_geojson_loyers',{p_code:'37233'});if(map.getSource('loy'))map.getSource('loy').setData(LOY)}catch(e){LOY={type:'FeatureCollection',features:[]}}}
+const dist=(a,b)=>{const R=6371000,t=Math.PI/180,dl=(b[1]-a[1])*t,dg=(b[0]-a[0])*t,x=Math.sin(dl/2)**2+Math.cos(a[1]*t)*Math.cos(b[1]*t)*Math.sin(dg/2)**2;return 2*R*Math.asin(Math.sqrt(x))};
+async function openParcelle(p,ll){
+  if(!LOY)await chargerLoyers();
+  const emp=+p.emp||0,surf=+p.surf||0;
+  const proches=(LOY.features||[]).map(f=>({...f.properties,d:dist([ll.lng,ll.lat],f.geometry.coordinates)})).filter(x=>x.d<1500).sort((a,b)=>a.d-b.d).slice(0,8);
+  let h=`<h2>Parcelle ${esc(p.idu)}</h2><div style="color:var(--dim)">${nz(p.zon)?'Zone '+esc(p.zon):''}${nz(p.ppri)?' · PPRI '+esc(p.ppri):''}</div>
+  <h3>Propriétaire</h3><div>${nz(p.prop)?'<b>'+esc(p.prop)+'</b> <i>('+esc(p.pt||'')+')</i>':'Propriétaire particulier, nom non public'}</div>
+  <h3>Foncier</h3><div class="kv"><div>Surface</div><div>${n0(surf)} m²</div><div>Emprise bâtie</div><div>${n0(emp)} m² (${surf?Math.round(emp/surf*100):0} %)</div></div>`;
+  if(p.vs&&VLP.BUR1){h+=`<h3>Grille DGFiP 2026 · secteur ${p.vs}${+p.vc&&+p.vc!==1?' · coefficient '+p.vc:''}</h3><table class="t"><tr><th>Catégorie</th><th class="r">€/m²/an</th></tr>`+
+    VLP_CAT.filter(c=>VLP[c]).map(c=>`<tr><td>${esc(VLP[c].libelle)} <span style="color:var(--dim)">${c}</span></td><td class="r">${vlpT(c,p.vs,p.vc)}</td></tr>`).join('')+`</table>
+    <div style="color:var(--dim);font-size:11px">Tarifs fiscaux issus des loyers déclarés en 2013 et actualisés, par m² de surface pondérée. Ordre de grandeur, souvent sous le marché pour l'activité.</div>`}
+  h+=`<h3>Références de loyers à moins de 1,5 km (${proches.length})</h3>`+(proches.length?'<table class="t"><tr><th>Type</th><th class="r">m²</th><th class="r">€/m²/an</th><th>Date</th></tr>'+proches.map(r=>`<tr><td>${esc(r.type||'')}${r.preneur?'<br><span style="color:var(--dim)">'+esc(r.preneur)+'</span>':''}</td><td class="r">${n0(r.surface)}</td><td class="r"><b>${r.loyer_m2??''}</b></td><td>${esc(r.date||'')}</td></tr>`).join('')+'</table>':'<div style="color:var(--dim)">Aucune référence saisie pour l\'instant.</div>');
+  h+=`<h3>Ajouter une référence de loyer signé</h3><div class="suivi">
+    <select id="lr-type"><option>Bureaux</option><option>Activité</option><option>Entrepôt</option><option>Commerce</option><option>Terrain</option><option>Autre</option></select>
+    <div><div class="lbl">Date de signature</div><input id="lr-date" type="date"></div>
+    <div><div class="lbl">Surface m²</div><input id="lr-surf" type="number"></div>
+    <div><div class="lbl">Loyer annuel HT €</div><input id="lr-loyer" type="number"></div>
+    <div><div class="lbl">Charges €/m²/an</div><input id="lr-ch" type="number"></div>
+    <div><div class="lbl">Franchise (mois)</div><input id="lr-fr" type="number"></div>
+    <input id="lr-duree" placeholder="Durée, ex 3/6/9">
+    <input id="lr-preneur" placeholder="Preneur">
+    <input id="lr-bailleur" placeholder="Bailleur">
+    <input id="lr-source" placeholder="Source : mandat IRIS REP, ARRISTO, confrère…">
+    <input id="lr-adr" class="full" placeholder="Adresse">
+    <textarea id="lr-notes" class="full" rows="2" placeholder="Notes"></textarea>
+    <button class="pri full" id="lr-ok">Enregistrer la référence</button></div>`;
+  openHTML(h);
+  $('lr-ok').onclick=async()=>{const body={code_commune:'37233',idu:p.idu,type_local:$('lr-type').value,surface:+$('lr-surf').value||null,loyer_annuel_ht:+$('lr-loyer').value||null,
+      charges_m2:+$('lr-ch').value||null,franchise_mois:+$('lr-fr').value||null,date_signature:$('lr-date').value||null,duree:$('lr-duree').value||null,preneur:$('lr-preneur').value||null,
+      bailleur:$('lr-bailleur').value||null,source:$('lr-source').value||null,adresse:$('lr-adr').value||null,notes:$('lr-notes').value||null,geom:`SRID=4326;POINT(${ll.lng} ${ll.lat})`};
+    if(!body.surface||!body.loyer_annuel_ht){msg('Surface et loyer annuel obligatoires',3000);return}
+    const r=await fetch(`${SUPA_URL}/rest/v1/carto_loyers_refs`,{method:'POST',headers:{...hdr(),'Prefer':'return=minimal'},body:JSON.stringify(body)});
+    if(r.ok){msg('Référence enregistrée',2500);await chargerLoyers();if(!$('l-loy').checked){$('l-loy').checked=true;$('l-loy').onchange({target:$('l-loy')})}openParcelle(p,ll)}else msg('Erreur '+r.status,4000)};
+}
+$('l-loy').onchange=async e=>{const on=e.target.checked;
+  if(on&&!map.getSource('loy')){if(!LOY)await chargerLoyers();map.addSource('loy',{type:'geojson',data:LOY});
+    map.addLayer({id:'loy-c',type:'circle',source:'loy',paint:{'circle-radius':7,'circle-color':'#0f8b8d','circle-stroke-color':'#fff','circle-stroke-width':2}});
+    map.on('mousemove','loy-c',e2=>{const r=e2.features[0].properties;map.getCanvas().style.cursor='pointer';
+      pop.setLngLat(e2.lngLat).setHTML(`<div class="tip"><b>${esc(r.type||'')} · ${r.loyer_m2??''} €/m²/an</b><br>${n0(r.surface)} m² · ${n0(r.loyer)} € HT/an${+r.franchise?' · franchise '+r.franchise+' mois':''}<br>${esc(r.date||'')}${nz(r.preneur)?' · '+esc(r.preneur):''}${nz(r.source)?'<br><span style="color:#666">'+esc(r.source)+'</span>':''}</div>`).addTo(map)});
+    map.on('mouseleave','loy-c',()=>{map.getCanvas().style.cursor='';pop.remove()});return}
+  vis('loy-c',on)};
 const DPE_COL={A:'#009a3d',B:'#55b947',C:'#c6d300',D:'#fff200',E:'#f9b000',F:'#eb5d0b',G:'#d7221f'};
 $('l-dpe').onchange=async e=>{const on=e.target.checked;
   if(on&&!map.getSource('dpe')){let z;try{z=await rpc('carto_geojson_dpe',{p_code:'37233'})}catch(x){e.target.checked=false;return}
@@ -622,6 +673,7 @@ map.on('load',async()=>{
   setInterval(auth,10*60*1000);
   addData();
   chargerExclusions();
+  rpc('carto_vlp_grille',{p_dep:'37'}).then(g=>{VLP=g||{}}).catch(()=>{});
   chargerZonesAN();
   rpc('carto_geojson_commune',{p_code:'37233'}).then(g=>{if(!g)return;map.addSource('com',{type:'geojson',data:g});map.addLayer({id:'com-l',type:'line',source:'com',paint:{'line-color':'#000','line-width':2.5}})}).catch(()=>{});
   chercher();
