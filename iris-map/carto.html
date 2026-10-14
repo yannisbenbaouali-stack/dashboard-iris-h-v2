@@ -492,7 +492,7 @@ $('l-dvf').onchange=async e=>{const on=e.target.checked;
   if(on&&!map.getSource('dvf')){let z;try{z=await rpc('carto_geojson_dvf',{p_code:'37233'})}catch(x){e.target.checked=false;return}
     map.addSource('dvf',{type:'geojson',data:z});
     const col=['match',['get','cat']];Object.entries(DVF_COL).forEach(([k,v])=>col.push(k,v));col.push('#999');
-    map.addLayer({id:'dvf-c',type:'circle',source:'dvf',paint:{'circle-radius':['match',['get','cat'],'logement',3,['interpolate',['linear'],['zoom'],12,4,16,8]],'circle-color':col,'circle-stroke-color':'#fff','circle-stroke-width':1.2,'circle-opacity':['match',['get','cat'],'logement',.6,1]}});
+    map.addLayer({id:'dvf-c',type:'circle',source:'dvf',paint:{'circle-radius':['interpolate',['linear'],['zoom'],12,['match',['get','cat'],'logement',2,4],16,['match',['get','cat'],'logement',4,8]],'circle-color':col,'circle-stroke-color':'#fff','circle-stroke-width':1.2,'circle-opacity':['match',['get','cat'],'logement',.6,1]}});
     map.on('mousemove','dvf-c',e2=>{const p=e2.features[0].properties;map.getCanvas().style.cursor='pointer';
       pop.setLngLat(e2.lngLat).setHTML(`<div class="tip"><b>${DVF_LIB[p.cat]||''} · ${n0(p.valeur)} €</b>${+p.prix_m2?' · '+n0(p.prix_m2)+' €/m²':''}<br>${esc(p.date)} · ${esc(p.nature||'')}<br>${esc(p.types||'Terrain nu')}${+p.surf_bati?'<br>Bâti '+n0(p.surf_bati)+' m²':''}${+p.surf_terrain?' · terrain '+n0(p.surf_terrain)+' m²':''}<br>${esc(p.adresse||'')}<br><span style="color:#666">${esc(p.parcelles||'')}</span></div>`).addTo(map)});
     map.on('mouseleave','dvf-c',()=>{map.getCanvas().style.cursor='';pop.remove()});return}
