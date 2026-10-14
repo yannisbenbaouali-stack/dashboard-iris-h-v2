@@ -122,6 +122,7 @@ a{color:var(--accent2)}
       <label class="chk"><input type="checkbox" id="l-ocs"> Occupation du sol OCS GE</label>
       <div id="leg-ocs" class="legbox" style="display:none"></div>
       <label class="chk"><input type="checkbox" id="l-per"> Permis Sitadel <span class="leg" style="background:#1f6fd1;border-radius:50%;margin-left:3px" title="locaux"></span><span class="leg" style="background:#d1361f;border-radius:50%" title="démolir"></span><span class="leg" style="background:#8e44ad;border-radius:50%" title="aménager"></span></label>
+      <label class="chk"><input type="checkbox" id="l-dpe"> DPE tertiaires ADEME <span class="leg" style="background:linear-gradient(90deg,#009a3d,#55b947,#c6d300,#fff200,#f9b000,#eb5d0b,#d7221f);width:28px;margin-left:3px"></span></label>
       <label class="chk"><input type="checkbox" id="l-fdc"> Ventes de fonds de commerce <span class="leg" style="background:#e0a800;transform:rotate(45deg);margin-left:3px"></span></label>
       <label class="chk"><input type="checkbox" id="l-fri"> Friches Cartofriches <span class="leg" style="background:#8b5a2b;margin-left:3px"></span></label>
       <label class="chk"><input type="checkbox" id="l-bod"> Propriétaire ou occupant en difficulté <span class="leg" style="background:#fff;border:2px solid #000;margin-left:3px"></span></label>
@@ -432,6 +433,16 @@ $('l-per').onchange=async e=>{const on=e.target.checked;
       pop.setLngLat(e2.lngLat).setHTML(`<div class="tip"><b>${PNAT[p.nature]?PNAT[p.nature][1]:esc(p.nature)}</b> ${esc(p.type||'')} · ${esc(p.date||'')}<br>${esc(p.demandeur||'Demandeur non diffusé')}${nz(p.adresse)?'<br>'+esc(p.adresse):''}${surf('Terrain',p.terrain)}${surf('Locaux créés',p.creee)}${surf('dont bureaux',p.bur)}${surf('dont industrie',p.ind)}${surf('dont entrepôt',p.ent)}${surf('dont commerce',p.com)}${surf('Surface démolie',p.demolie)}${nz(p.chantier)?'<br>Chantier ouvert '+esc(p.chantier):''}<br><span style="color:#666">${esc(p.num)} · ${esc(p.parcelles||'')}</span></div>`).addTo(map)});
     map.on('mouseleave','per-c',()=>{map.getCanvas().style.cursor='';pop.remove()});return}
   vis('per-c',on)};
+const DPE_COL={A:'#009a3d',B:'#55b947',C:'#c6d300',D:'#fff200',E:'#f9b000',F:'#eb5d0b',G:'#d7221f'};
+$('l-dpe').onchange=async e=>{const on=e.target.checked;
+  if(on&&!map.getSource('dpe')){let z;try{z=await rpc('carto_geojson_dpe',{p_code:'37233'})}catch(x){e.target.checked=false;return}
+    map.addSource('dpe',{type:'geojson',data:z});
+    const col=['match',['get','classe']];Object.entries(DPE_COL).forEach(([k,v])=>col.push(k,v));col.push('#9aa0ad');
+    map.addLayer({id:'dpe-c',type:'circle',source:'dpe',paint:{'circle-radius':['interpolate',['linear'],['zoom'],12,3,16,6.5],'circle-color':col,'circle-stroke-color':'#333','circle-stroke-width':1,'circle-opacity':['case',['==',['get','base'],'avant 2021'],.6,1]}});
+    map.on('mousemove','dpe-c',e2=>{const p=e2.features[0].properties;map.getCanvas().style.cursor='pointer';
+      pop.setLngLat(e2.lngLat).setHTML(`<div class="tip"><b>DPE tertiaire ${p.classe!=='?'?'<span style="display:inline-block;padding:0 6px;border-radius:3px;color:#111;background:'+(DPE_COL[p.classe]||'#ccc')+'">'+esc(p.classe)+'</span>':'sans étiquette'}</b>${nz(p.ges)?' · GES '+esc(p.ges):''}<br>${esc(p.secteur||'')}${+p.surface?'<br>Surface '+n0(p.surface)+' m²':''}${+p.conso?' · '+n0(p.conso)+' kWhep/m²/an':''}${+p.annee?'<br>Construit en '+p.annee:''}<br>${esc(p.adresse||'')}<br><span style="color:#666">${esc(p.date||'')} · base ${esc(p.base)} · ${esc(p.numero)}</span></div>`).addTo(map)});
+    map.on('mouseleave','dpe-c',()=>{map.getCanvas().style.cursor='';pop.remove()});return}
+  vis('dpe-c',on)};
 $('l-fdc').onchange=async e=>{const on=e.target.checked;
   if(on&&!map.getSource('fdc')){let z;try{z=await rpc('carto_geojson_fonds',{p_code:'37233'})}catch(x){e.target.checked=false;return}
     map.addSource('fdc',{type:'geojson',data:z});
