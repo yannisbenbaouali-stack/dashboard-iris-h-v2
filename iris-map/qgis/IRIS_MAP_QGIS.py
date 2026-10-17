@@ -220,8 +220,44 @@ def main():
     pj.addMapLayer(dvf, False)
     donnees.addLayer(dvf).setItemVisibilityChecked(False)
 
+    # Foncier nu et foncier vétuste, propriétaires publics et exclus (ENEDIS, SNCF, GRDF) masqués :
+    # retirer "AND NOT est_public AND NOT exclu" dans Propriétés > Source > Filtre pour les afficher
+    MASQUE = ' AND NOT est_public AND NOT exclu'
+    tip_fon = ('<b>[% "categorie" %]</b> · [% "idu" %]<br>'
+               'Propriétaire : [% coalesce("proprietaire", \'personne physique ou inconnu\') %][% CASE WHEN "prop_type" IS NOT NULL THEN \' (\' || "prop_type" || \')\' END %]<br>'
+               'Foncier [% format_number("surface_m2",0) %] m² · emprise [% format_number(coalesce("emprise_m2",0),0) %] m² ([% coalesce("coef_emprise_pct",0) %] %)<br>'
+               '[% CASE WHEN "annee_bati" IS NOT NULL THEN \'Bâti de \' || "annee_bati" || \' · \' END %]Zone [% "zonage" %][% CASE WHEN "ppri" IS NOT NULL THEN \' · PPRI \' || "ppri" END %]')
+    for nom_couche, filtre, valeurs, vis in [
+        ('Foncier nu', "categorie IN ('Terrain nu','Faiblement bâti')",
+         [('Terrain nu', '#2e9e44', 'Terrain nu', 0.5), ('Faiblement bâti', '#f2c230', 'Faiblement bâti, emprise inférieure à 40 %', 0.5)], True),
+        ('Foncier vétuste', "categorie = 'Foncier vétuste'",
+         [('Foncier vétuste', '#f07c1c', 'Activité construite avant 1980', 0.5)], False),
+    ]:
+        fon = QgsVectorLayer(uri_pg(hote, cid, 'v_qgis_foncier', 'geom', 'idu', QgsWkbTypes.MultiPolygon, filtre + MASQUE), nom_couche, 'postgres')
+        categories(fon, 'categorie', valeurs)
+        fon.setMapTipTemplate(tip_fon)
+        action_url(fon, 'Propriétaire sur Pappers', 'https://www.pappers.fr/recherche?q=[% "proprietaire" %]')
+        action_url(fon, 'Street View', 'https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=[% y(transform(centroid($geometry), @layer_crs, \'EPSG:4326\')) %],[% x(transform(centroid($geometry), @layer_crs, \'EPSG:4326\')) %]')
+        pj.addMapLayer(fon, False)
+        donnees.addLayer(fon).setItemVisibilityChecked(vis)
+
+    # Entreprises d'activité : propriétaires et occupants des bâtiments cibles
+    ent = QgsVectorLayer(uri_pg(hote, cid, 'v_qgis_entreprises', 'geom', 'id', QgsWkbTypes.Point, 'NOT est_public AND NOT exclu'), 'Entreprises d\'activité', 'postgres')
+    cats = []
+    for val, contour, larg, libelle in [('Propriétaire', '#111111', '0.5', 'Propriétaire'), ('Occupant', '#ffffff', '0.3', 'Occupant')]:
+        s = QgsMarkerSymbol.createSimple({'name': 'circle', 'color': '#e3121b', 'outline_color': contour, 'outline_width': larg, 'size': '2.6'})
+        cats.append(QgsRendererCategory(val, s, libelle))
+    ent.setRenderer(QgsCategorizedSymbolRenderer('role', cats))
+    ent.setMapTipTemplate('<b>[% "nom" %]</b> · [% "role" %]<br>NAF [% "naf" %] · effectif [% "tranche_effectif" %] · [% "etat" %]'
+                          '[% CASE WHEN "priorite" IS NOT NULL THEN \'<br>Bâtiment P\' || "priorite" END %]')
+    action_url(ent, 'Entreprise sur Pappers', 'https://www.pappers.fr/entreprise/[% "siren" %]')
+    action_url(ent, 'Entreprise sur Annuaire Entreprises', 'https://annuaire-entreprises.data.gouv.fr/entreprise/[% "siren" %]')
+    action_url(ent, 'Fiche bâtiment IRIS MAP', 'https://dashboard-iris-h.pages.dev/carto.html#[% "batiment_groupe_id" %]')
+    pj.addMapLayer(ent, False)
+    donnees.addLayer(ent).setItemVisibilityChecked(False)
+
     # Zonage PLU
-    zon = QgsVectorLayer(uri_pg(hote, cid, 'carto_zonage', 'geom', 'id', QgsWkbTypes.MultiPolygon), 'Zonage PLU', 'postgres')
+    zon =QgsVectorLayer(uri_pg(hote, cid, 'carto_zonage', 'geom', 'id', QgsWkbTypes.MultiPolygon), 'Zonage PLU', 'postgres')
     categories(zon, 'activite', [(True, '#c2551f', 'Zone d\'activité', 0.25), (False, '#f2e2a0', 'Autre zone', 0.12)])
     etiquettes(zon, 'libelle', 9)
     zon.setMapTipTemplate('<b>[% "libelle" %]</b><br>[% "libelong" %]')
